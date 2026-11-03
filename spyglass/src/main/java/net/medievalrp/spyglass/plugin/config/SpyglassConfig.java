@@ -160,7 +160,9 @@ public record SpyglassConfig(
                         value.node("enabled").getBoolean(true),
                         value.node("past-tense").getString(String.valueOf(key)),
                         readEventRetention(value, String.valueOf(key), plugin.getLogger()),
-                        readLogCancelled(value))));
+                        readLogCancelled(value),
+                        readPermission(value),
+                        readRollbackPermission(value))));
 
         java.util.List<String> commandRedact = parseCommandRedact(root);
 
@@ -359,6 +361,32 @@ public record SpyglassConfig(
         // aren't in config; their verb lives in the EventCatalog registry.
         String custom = net.medievalrp.spyglass.api.event.EventCatalog.pastTenseOf(eventName);
         return custom != null ? custom : eventName;
+    }
+
+    public String searchPermission(String eventName) {
+        EventSettings settings = events.get(eventName);
+        if (settings != null && settings.permission() != null && !settings.permission().isBlank()) {
+            return settings.permission();
+        }
+        return "spyglass.search";
+    }
+
+    public String rollbackPermission(String eventName) {
+        EventSettings settings = events.get(eventName);
+        if (settings != null && settings.rollbackPermission() != null && !settings.rollbackPermission().isBlank()) {
+            return settings.rollbackPermission();
+        }
+        return "spyglass.rollback";
+    }
+
+    private static String readPermission(ConfigurationNode node) {
+        String perm = node.node("permission").getString();
+        return perm != null && !perm.isBlank() ? perm.trim() : null;
+    }
+
+    private static String readRollbackPermission(ConfigurationNode node) {
+        String perm = node.node("rollback-permission").getString();
+        return perm != null && !perm.isBlank() ? perm.trim() : null;
     }
 
     /**
@@ -610,7 +638,10 @@ public record SpyglassConfig(
      *                         {@code command} only.
      */
     public record EventSettings(boolean enabled, String pastTense, Long retentionSeconds,
-                                boolean logCancelled) {
+                                boolean logCancelled, String permission, String rollbackPermission) {
+        public EventSettings(boolean enabled, String pastTense, Long retentionSeconds, boolean logCancelled) {
+            this(enabled, pastTense, retentionSeconds, logCancelled, null, null);
+        }
     }
 
     public record Tool(Material material, Duration lookback) {

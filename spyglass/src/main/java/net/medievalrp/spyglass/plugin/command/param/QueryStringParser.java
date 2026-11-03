@@ -36,6 +36,10 @@ public final class QueryStringParser {
         this.config = config;
     }
 
+    public SpyglassConfig config() {
+        return config;
+    }
+
     public QueryRequest parse(CommandSender sender, String raw, int overrideLimit) throws ParamParseException {
         return parse(sender, raw, overrideLimit, null);
     }

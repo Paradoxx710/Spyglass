@@ -232,6 +232,49 @@ class EventParamTest {
                 .containsExactly("break", "rolled-break");
     }
 
+    @Test
+    void parseRejectsWhenSenderLacksCustomPermission() {
+        org.bukkit.command.CommandSender sender = org.mockito.Mockito.mock(org.bukkit.command.CommandSender.class);
+        org.mockito.Mockito.when(sender.hasPermission("spyglass.action.break")).thenReturn(false);
+
+        EventParam param = new EventParam(ENABLED, name -> "break".equals(name) ? "spyglass.action.break" : "spyglass.search");
+        ParamContext context = new ParamContext(sender, null, 100);
+
+        assertThatThrownBy(() -> param.parse("a", "break", context))
+                .isInstanceOf(ParamParseException.class)
+                .hasMessageContaining("You do not have permission to query the 'break' action.");
+    }
+
+    @Test
+    void parseAcceptsWhenSenderHasPermission() throws Exception {
+        org.bukkit.command.CommandSender sender = org.mockito.Mockito.mock(org.bukkit.command.CommandSender.class);
+        org.mockito.Mockito.when(sender.hasPermission("spyglass.action.break")).thenReturn(true);
+
+        EventParam param = new EventParam(ENABLED, name -> "break".equals(name) ? "spyglass.action.break" : "spyglass.search");
+        ParamContext context = new ParamContext(sender, null, 100);
+
+        QueryPredicate predicate = param.parse("a", "break", context);
+        assertThat(predicate).isInstanceOf(QueryPredicate.Eq.class);
+    }
+
+    @Test
+    void suggestionsFilterBySenderPermission() {
+        org.bukkit.command.CommandSender sender = org.mockito.Mockito.mock(org.bukkit.command.CommandSender.class);
+        org.mockito.Mockito.when(sender.hasPermission("spyglass.action.break")).thenReturn(false);
+        org.mockito.Mockito.when(sender.hasPermission("spyglass.action.place")).thenReturn(true);
+        org.mockito.Mockito.when(sender.hasPermission("spyglass.search")).thenReturn(true);
+
+        EventParam param = new EventParam(ENABLED, name -> {
+            if ("break".equals(name)) return "spyglass.action.break";
+            if ("place".equals(name)) return "spyglass.action.place";
+            return "spyglass.search";
+        });
+
+        java.util.List<String> suggestions = param.suggestions(sender, "");
+        assertThat(suggestions).doesNotContain("break");
+        assertThat(suggestions).contains("place", "death", "deposit", "say");
+    }
+
     private static ParamContext ctx() {
         return new ParamContext(null, null, 100);
     }

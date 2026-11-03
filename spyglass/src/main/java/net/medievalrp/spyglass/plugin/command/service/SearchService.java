@@ -96,7 +96,21 @@ public final class SearchService {
         boolean grouping = request.grouping()
                 && !request.flags().contains(Flag.NO_GROUP)
                 && !result.aggregations().isEmpty();
-        int count = grouping ? result.aggregations().size() : result.records().size();
+        java.util.function.Predicate<String> canViewEvent = event ->
+                sender == null || sender.hasPermission(parser.config().searchPermission(event));
+
+        List<QueryResult.RecordAggregation> aggregations = grouping
+                ? result.aggregations().stream()
+                        .filter(agg -> canViewEvent.test(agg.sample().event()))
+                        .toList()
+                : List.of();
+        List<EventRecord> records = !grouping
+                ? result.records().stream()
+                        .filter(rec -> canViewEvent.test(rec.event()))
+                        .toList()
+                : List.of();
+
+        int count = grouping ? aggregations.size() : records.size();
         if (count == 0) {
             pageCache.clear(sender);
             sender.sendMessage(Feedback.error("No results."));
@@ -117,7 +131,6 @@ public final class SearchService {
         Set<UUID> rolledBack = result.rolledBackIds();
         IntFunction<Component> lines;
         if (grouping) {
-            List<QueryResult.RecordAggregation> aggregations = result.aggregations();
             var flags = request.flags();
             lines = index -> {
                 QueryResult.RecordAggregation aggregation = aggregations.get(index);
@@ -125,7 +138,6 @@ public final class SearchService {
                         rolledBack.contains(aggregation.sample().id()));
             };
         } else {
-            List<EventRecord> records = result.records();
             var flags = request.flags();
             lines = index -> {
                 EventRecord record = records.get(index);

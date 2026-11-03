@@ -238,6 +238,12 @@ public final class RollbackService {
             return;
         }
 
+        String deniedRollbackEvent = findDeniedRollbackEvent(request.predicates(), sender);
+        if (deniedRollbackEvent != null) {
+            sender.sendMessage(Feedback.error("You do not have permission to rollback the '" + deniedRollbackEvent + "' action."));
+            return;
+        }
+
         // Queue serializes rollbacks so two operators can't trip
         // over each other writing the same chunk.
         UUID operatorId = sender instanceof Player p ? p.getUniqueId() : null;
@@ -270,6 +276,47 @@ public final class RollbackService {
             sender.sendMessage(Feedback.bonus("Rollback queued at position " + position
                     + " (id " + job.shortId() + "). View / cancel with /sg rbqueue."));
         }
+    }
+
+    private String findDeniedRollbackEvent(List<net.medievalrp.spyglass.api.query.QueryPredicate> predicates, CommandSender sender) {
+        if (sender == null) {
+            return null;
+        }
+        for (net.medievalrp.spyglass.api.query.QueryPredicate predicate : predicates) {
+            String denied = findDeniedRollbackEvent(predicate, sender);
+            if (denied != null) {
+                return denied;
+            }
+        }
+        return null;
+    }
+
+    private String findDeniedRollbackEvent(net.medievalrp.spyglass.api.query.QueryPredicate predicate, CommandSender sender) {
+        if (predicate instanceof net.medievalrp.spyglass.api.query.QueryPredicate.Eq eq && "event".equals(eq.field()) && eq.value() instanceof String eventName) {
+            String requiredPerm = config.rollbackPermission(eventName);
+            if (!sender.hasPermission(requiredPerm)) {
+                return eventName;
+            }
+        } else if (predicate instanceof net.medievalrp.spyglass.api.query.QueryPredicate.In in && "event".equals(in.field())) {
+            for (Object val : in.values()) {
+                if (val instanceof String eventName) {
+                    String requiredPerm = config.rollbackPermission(eventName);
+                    if (!sender.hasPermission(requiredPerm)) {
+                        return eventName;
+                    }
+                }
+            }
+        } else if (predicate instanceof net.medievalrp.spyglass.api.query.QueryPredicate.And and) {
+            for (net.medievalrp.spyglass.api.query.QueryPredicate child : and.clauses()) {
+                String denied = findDeniedRollbackEvent(child, sender);
+                if (denied != null) {
+                    return denied;
+                }
+            }
+        } else if (predicate instanceof net.medievalrp.spyglass.api.query.QueryPredicate.Not not) {
+            return findDeniedRollbackEvent(not.negated(), sender);
+        }
+        return null;
     }
 
     /**

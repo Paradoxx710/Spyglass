@@ -24,11 +24,17 @@ public final class EventParam implements QueryParamHandler {
             "withdraw", "rolled-withdraw");
 
     private final Set<String> enabledEvents;
+    private final java.util.function.Function<String, String> permissionResolver;
 
     public EventParam(Set<String> enabledEvents) {
+        this(enabledEvents, name -> "spyglass.search");
+    }
+
+    public EventParam(Set<String> enabledEvents, java.util.function.Function<String, String> permissionResolver) {
         // Live reference, NOT a copy: SpyglassApi#registerEvent adds custom
         // event names to this same set at runtime so a:<name> parses for them.
         this.enabledEvents = enabledEvents;
+        this.permissionResolver = permissionResolver != null ? permissionResolver : name -> "spyglass.search";
     }
 
     @Override
@@ -53,6 +59,11 @@ public final class EventParam implements QueryParamHandler {
             String name = negated ? token.substring(1) : token;
             if (!enabledEvents.contains(name)) {
                 throw new ParamParseException("Unknown or disabled event: " + name);
+            }
+            CommandSender sender = context != null ? context.sender() : null;
+            String requiredPermission = permissionResolver.apply(name);
+            if (sender != null && requiredPermission != null && !sender.hasPermission(requiredPermission)) {
+                throw new ParamParseException("You do not have permission to query the '" + name + "' action.");
             }
             addWithRolledCounterpart(negated ? excludes : includes, name);
         }
@@ -95,8 +106,16 @@ public final class EventParam implements QueryParamHandler {
 
     @Override
     public List<String> suggestions(CommandSender sender, String input) {
+        String lowerInput = input.toLowerCase(java.util.Locale.ROOT);
         return enabledEvents.stream()
-                .filter(name -> name.startsWith(input.toLowerCase(java.util.Locale.ROOT)))
+                .filter(name -> name.startsWith(lowerInput))
+                .filter(name -> {
+                    if (sender == null) {
+                        return true;
+                    }
+                    String requiredPermission = permissionResolver.apply(name);
+                    return requiredPermission == null || sender.hasPermission(requiredPermission);
+                })
                 .sorted()
                 .toList();
     }

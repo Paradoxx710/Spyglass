@@ -497,7 +497,7 @@ public final class SpyglassPlugin extends JavaPlugin {
         // rollback-by-name works on the SQLite/MariaDB lean readers.
         apiImpl.registerQueryParamHandler(
                 PlayerParam.withStoreFallback(recordStore::resolvePlayerId));
-        apiImpl.registerQueryParamHandler(new EventParam(enabledEvents));
+        apiImpl.registerQueryParamHandler(new EventParam(enabledEvents, event -> config().searchPermission(event)));
         apiImpl.registerQueryParamHandler(new RadiusParam());
         apiImpl.registerQueryParamHandler(new ChunkRadiusParam());
         apiImpl.registerQueryParamHandler(new TimeParam());
