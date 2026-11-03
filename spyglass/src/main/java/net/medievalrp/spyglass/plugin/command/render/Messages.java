@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.medievalrp.spyglass.api.util.BlockLocation;
 import net.medievalrp.spyglass.api.util.Duration;
@@ -37,7 +38,16 @@ public final class Messages {
             Map.entry("commands.action-rollback-no-permission", "You do not have permission to rollback the '%action%' action."),
             Map.entry("commands.rollback-queued", "Rollback queued at position %position% (id %id%). View / cancel with /sg rbqueue."),
             Map.entry("commands.page-header", "<green>--- </green><aqua>Spyglass Search</aqua><gray> (Page %page%/%total%)</gray><green> ---</green>"),
-            Map.entry("results.ip-hidden", "(ip hidden)")
+            Map.entry("results.ip-hidden", "(ip hidden)"),
+            Map.entry("results.line", "<gray>= </gray>%date%%origin-tag%%leading-tags%<green>%player%</green> <white>%action%</white>%amount%%target%%count%%time%"),
+            Map.entry("results.hover.default",
+                    "<gray>Source: </gray><white>%source%</white>\n"
+                    + "<gray>Event: </gray><white>%event%</white>%count-line%\n"
+                    + "<gray>Target: </gray><white>%target%</white>\n"
+                    + "<gray>When: </gray><white>%when%</white>\n"
+                    + "<gray>Origin: </gray><white>%origin%</white>\n"
+                    + "<gray>Location: </gray><white>%location%</white>"
+                    + "%server-line%%details%")
     );
 
     private static volatile Messages instance = new Messages(DEFAULTS);
@@ -120,6 +130,10 @@ public final class Messages {
         return templates.getOrDefault(key, DEFAULTS.getOrDefault(key, key));
     }
 
+    public boolean hasTemplate(String key) {
+        return templates.containsKey(key);
+    }
+
     public Component get(String key) {
         return format(key, (CommandSender) null, Collections.emptyMap());
     }
@@ -154,6 +168,37 @@ public final class Messages {
         } catch (Exception ex) {
             return Component.text(template);
         }
+    }
+
+    public Component formatComponents(String key, Map<String, Component> placeholders) {
+        String template = raw(key);
+        Map<String, String> markers = new HashMap<>();
+        if (placeholders != null) {
+            int index = 0;
+            for (Map.Entry<String, Component> entry : placeholders.entrySet()) {
+                String marker = "SPYGLASSPLACEHOLDER" + java.util.UUID.randomUUID()
+                        .toString().replace("-", "") + index++ + "X";
+                markers.put(marker, entry.getKey());
+                template = template.replace(entry.getKey(), marker);
+            }
+        }
+
+        Component formatted;
+        try {
+            formatted = MINI_MESSAGE.deserialize(template);
+        } catch (Exception ex) {
+            formatted = Component.text(template);
+        }
+        for (Map.Entry<String, String> marker : markers.entrySet()) {
+            Component replacement = placeholders.get(marker.getValue());
+            if (replacement != null) {
+                formatted = formatted.replaceText(TextReplacementConfig.builder()
+                        .matchLiteral(marker.getKey())
+                        .replacement(replacement)
+                        .build());
+            }
+        }
+        return formatted;
     }
 
     private static Map<String, String> toMap(Object... pairs) {

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
@@ -26,12 +27,18 @@ import net.medievalrp.spyglass.api.extension.DisplayRenderer;
 import net.medievalrp.spyglass.api.query.Flag;
 import net.medievalrp.spyglass.api.util.BlockLocation;
 import net.medievalrp.spyglass.plugin.config.SpyglassConfig;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class ResultRendererTest {
 
     private static final UUID PLAYER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID WORLD_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+    @AfterEach
+    void resetMessages() {
+        Messages.setInstance(null);
+    }
 
     private static BlockUseRecord useRecord() {
         Instant now = Instant.now();
@@ -61,6 +68,24 @@ class ResultRendererTest {
         String plain = PlainTextComponentSerializer.plainText().serialize(rendered);
 
         assertThat(plain).contains("SCULK_SENSOR");
+    }
+
+    @Test
+    void configuredLineAndEventHoverTemplatesRenderTheirPlaceholders() {
+        Messages.setInstance(new Messages(Map.of(
+                "results.line", "%player%|%action%|%target%",
+                "results.hover.default", "default hover",
+                "results.hover.events.sculk", "<yellow>%action%</yellow>\n%location%"
+        )));
+        SpyglassApi api = mock(SpyglassApi.class);
+        when(api.displayRenderer("sculk")).thenReturn(Optional.empty());
+        ResultRenderer renderer = new ResultRenderer(api, configWithVerb("sculk", "triggered"));
+
+        Component rendered = renderer.renderSingle(useRecord(), EnumSet.noneOf(Flag.class), true);
+
+        assertThat(PlainTextComponentSerializer.plainText().serialize(rendered))
+                .isEqualTo("Alice|triggered| SCULK_SENSOR");
+        assertThat(hoverPlain(rendered)).isEqualTo("triggered\nworld 10,64,20");
     }
 
     @Test

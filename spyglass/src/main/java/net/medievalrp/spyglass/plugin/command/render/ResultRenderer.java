@@ -2,8 +2,10 @@ package net.medievalrp.spyglass.plugin.command.render;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -94,35 +96,18 @@ public final class ResultRenderer {
     private Component line(EventRecord record, long count, boolean grouped, boolean extended,
                            java.util.EnumSet<net.medievalrp.spyglass.api.query.Flag> flags,
                            boolean showIp, boolean rolledBack) {
-        // v1 grouped: "= (24/4/26) SOURCE verb [qty ]TARGET xCOUNT TIME"
-        // v1 ungrouped: "= SOURCE verb [qty ]TARGET TIME"
-        var builder = Component.text()
-                .append(Component.text("= ", NamedTextColor.GRAY));
-        if (grouped) {
-            builder.append(Component.text("(" + shortDate(record.occurred()) + ") ",
-                    NamedTextColor.GRAY));
-        }
         String tag = originTag(record.origin());
-        if (!tag.isEmpty()) {
-            builder.append(Component.text(tag + " ", NamedTextColor.AQUA));
-        }
-        // Extension-supplied leading tags (e.g. WhisperNet's channel) render
-        // between the origin tag and the actor name. Components arrive
-        // fully formed; we just space them out.
+        Component renderedLeadingTags = Component.empty();
         for (Component leadingTag : leadingTags(record)) {
-            builder.append(leadingTag).append(Component.space());
+            renderedLeadingTags = renderedLeadingTags.append(leadingTag).append(Component.space());
         }
-        builder.append(Component.text(displaySourceName(record), NamedTextColor.GREEN))
-                .append(Component.text(" " + verb(record), NamedTextColor.WHITE));
         int qty = quantityOf(record);
-        if (qty > 0) {
-            builder.append(Component.text(" " + qty, NamedTextColor.GREEN));
-        }
         // Target span: skipped entirely when the record has nothing
         // useful to put there (e.g. QuitRecord), otherwise rendered as
         // " TARGET" with a single leading space so the line stays
         // tidy regardless of whether quantity/target are present.
         String targetText = targetOf(record, showIp);
+        Component renderedTarget = Component.empty();
         if (!targetText.isEmpty()) {
             Component defaultTarget = Component.text(" " + targetText, NamedTextColor.AQUA);
             java.util.Optional<DisplayRenderer> custom = api == null
@@ -137,12 +122,29 @@ public final class ResultRenderer {
                         }
                     })
                     .orElse(defaultTarget);
-            builder.append(target);
+            renderedTarget = target;
         }
-        if (grouped) {
-            builder.append(Component.text(" x" + count, NamedTextColor.GREEN));
-        }
-        builder.append(Component.text(" " + timeAgo(record.occurred()), NamedTextColor.WHITE))
+
+        Map<String, Component> placeholders = new LinkedHashMap<>();
+        placeholders.put("%date%", grouped
+                ? Component.text("(" + shortDate(record.occurred()) + ") ", NamedTextColor.GRAY)
+                : Component.empty());
+        placeholders.put("%origin-tag%", tag.isEmpty()
+                ? Component.empty()
+                : Component.text(tag + " ", NamedTextColor.AQUA));
+        placeholders.put("%leading-tags%", renderedLeadingTags);
+        placeholders.put("%player%", Component.text(displaySourceName(record), NamedTextColor.GREEN));
+        placeholders.put("%source%", Component.text(displaySourceName(record), NamedTextColor.GREEN));
+        placeholders.put("%action%", Component.text(verb(record), NamedTextColor.WHITE));
+        placeholders.put("%amount%", qty > 0
+                ? Component.text(" " + qty, NamedTextColor.GREEN)
+                : Component.empty());
+        placeholders.put("%target%", renderedTarget);
+        placeholders.put("%count%", grouped
+                ? Component.text(" x" + count, NamedTextColor.GREEN)
+                : Component.empty());
+        placeholders.put("%time%", Component.text(" " + timeAgo(record.occurred()), NamedTextColor.WHITE));
+        Component rendered = Messages.getInstance().formatComponents("results.line", placeholders)
                 .hoverEvent(HoverEvent.showText(hover(record, count, showIp)));
         if (grouped) {
             // Grouped result: click drills down into the per-player,
@@ -159,16 +161,16 @@ public final class ResultRenderer {
             if (flags.contains(net.medievalrp.spyglass.api.query.Flag.GLOBAL)) {
                 drill += " -g";
             }
-            builder.clickEvent(ClickEvent.runCommand(drill));
+            rendered = rendered.clickEvent(ClickEvent.runCommand(drill));
         } else if (record.location() != null) {
             // Single record: click teleports the operator to the scene.
-            builder.clickEvent(teleportClick(record.location()));
+            rendered = rendered.clickEvent(teleportClick(record.location()));
         }
         if (extended && record.location() != null) {
             // v1's `-ex`: a second inline gray line showing coordinates,
             // also clickable for teleport (redundant with the main line
             // click but consistent with v1's DataHelper.buildLocation).
-            builder.append(Component.newline())
+            rendered = rendered.append(Component.newline())
                     .append(Component.text(
                                     " - (x: " + record.location().x()
                                             + " y: " + record.location().y()
@@ -179,7 +181,6 @@ public final class ResultRenderer {
                             .hoverEvent(HoverEvent.showText(
                                     Component.text("Click to teleport", NamedTextColor.GRAY))));
         }
-        Component rendered = builder.asComponent();
         // A reverted record renders muted so "already rolled back" reads at a
         // glance, CoreProtect-style (#319): default gray + struck through +
         // italic on the content, while the leading "= " marker keeps its
@@ -291,67 +292,143 @@ public final class ResultRenderer {
     }
 
     private Component hover(EventRecord record, long count, boolean showIp) {
-        List<Component> lines = new ArrayList<>();
-        lines.add(kv("Source", record.sourceName()));
-        lines.add(kv("Event", record.event()));
-        if (count > 1) {
-            lines.add(kv("Count", String.valueOf(count)));
-        }
-        lines.add(kv("Target", targetOf(record, showIp)));
-        lines.add(kv("When", fullTimestamp(record.occurred())));
-        lines.add(kv("Origin", originText(record.origin())));
-        lines.add(kv("Location", locationText(record.location())));
-        if (record.server() != null && !record.server().isBlank()) {
-            lines.add(kv("Server", record.server()));
-        }
+        List<Component> details = new ArrayList<>();
+        String recipients = "";
+        String commandLine = "";
+        String ip = "";
+        String damage = "";
+        String weapon = "";
+        String cause = "";
+        String via = "";
         if (record instanceof ChatRecord chat && !chat.recipients().isEmpty()) {
-            lines.add(kv("Recipients", recipientNames(chat.recipients())));
+            recipients = recipientNames(chat.recipients());
+            details.add(kv("Recipients", recipients));
         }
         if (record instanceof CommandRecord command) {
-            lines.add(kv("Line", command.commandLine()));
+            commandLine = command.commandLine();
+            details.add(kv("Line", commandLine));
         }
-        if (record instanceof JoinRecord join && !join.address().isBlank()) {
-            lines.add(kv("IP", showIp ? join.address() : IP_HIDDEN));
+        if (record instanceof JoinRecord join && join.address() != null && !join.address().isBlank()) {
+            ip = showIp ? join.address() : IP_HIDDEN;
+            details.add(kv("IP", ip));
         }
         if (record instanceof EntityHitRecord hit) {
-            lines.add(kv("Damage", String.format(Locale.ROOT, "%.1f", hit.damage())));
+            damage = String.format(Locale.ROOT, "%.1f", hit.damage());
+            details.add(kv("Damage", damage));
             if (hit.projectile()) {
-                lines.add(kv("Weapon", hit.projectileType() == null
-                        ? "projectile" : upperOrEmpty(hit.projectileType())));
+                weapon = hit.projectileType() == null
+                        ? "projectile" : upperOrEmpty(hit.projectileType());
+                details.add(kv("Weapon", weapon));
             }
         }
         if (record instanceof EntityDeathRecord death && death.damageCause() != null
                 && !death.damageCause().isBlank()) {
-            lines.add(kv("Cause", death.damageCause()));
+            cause = death.damageCause();
+            details.add(kv("Cause", cause));
         }
         if (record instanceof TeleportRecord tp && tp.cause() != null && !tp.cause().isBlank()) {
-            lines.add(kv("Via", tp.cause()));
+            via = tp.cause();
+            details.add(kv("Via", via));
         }
-        // Plugin-supplied extension fields (e.g. a chat channel) get their own
-        // hover line, so they're visible even with no DisplayRenderer registered.
-        record.extensions().forEach((key, value) -> lines.add(kv(capitalizeKey(key), value)));
-        // Custom item detail (name / lore / enchants) for the item this record
-        // is about — lets an operator tell one IRON_HORSE_ARMOR apart from the
-        // next. Vanilla items contribute nothing.
-        appendItemDetail(lines, record);
-        // Append extra hover lines from a registered DisplayRenderer, if any.
+        StringBuilder extensionValues = new StringBuilder();
+        record.extensions().forEach((key, value) -> {
+            details.add(kv(capitalizeKey(key), value));
+            if (extensionValues.length() > 0) {
+                extensionValues.append('\n');
+            }
+            extensionValues.append(capitalizeKey(key)).append(": ").append(value);
+        });
+        StoredItem item = subjectItem(record);
+        String itemName = item == null || item.name() == null ? "" : item.name();
+        String itemEnchants = item == null ? "" : String.join(", ", item.enchants());
+        String itemTags = itemTags(item);
+        String itemLore = item == null ? "" : String.join("\n", visibleLore(item.lore()));
+        appendItemDetail(details, record);
         if (api != null) {
             api.displayRenderer(record.event()).ifPresent(renderer -> {
                 try {
-                    lines.addAll(renderer.hoverLines(record));
+                    List<Component> extraLines = renderer.hoverLines(record);
+                    if (extraLines != null) {
+                        details.addAll(extraLines);
+                    }
                 } catch (RuntimeException ignored) {
                 }
             });
         }
 
-        Component hover = Component.empty();
-        for (int index = 0; index < lines.size(); index++) {
-            if (index > 0) {
-                hover = hover.append(Component.newline());
-            }
-            hover = hover.append(lines.get(index));
+        int amount = quantityOf(record);
+        String timestamp = fullTimestamp(record.occurred());
+        Map<String, Component> placeholders = new LinkedHashMap<>();
+        placeholders.put("%source%", textOrEmpty(record.sourceName()));
+        placeholders.put("%player%", textOrEmpty(record.sourceName()));
+        placeholders.put("%event%", textOrEmpty(record.event()));
+        placeholders.put("%action%", textOrEmpty(verb(record)));
+        placeholders.put("%count%", textOrEmpty(count > 1 ? String.valueOf(count) : ""));
+        placeholders.put("%target%", textOrEmpty(targetOf(record, showIp)));
+        placeholders.put("%when%", textOrEmpty(timestamp));
+        placeholders.put("%time%", textOrEmpty(timestamp));
+        placeholders.put("%time-ago%", textOrEmpty(timeAgo(record.occurred())));
+        placeholders.put("%date%", textOrEmpty(shortDate(record.occurred())));
+        placeholders.put("%origin%", textOrEmpty(originText(record.origin())));
+        placeholders.put("%origin-tag%", textOrEmpty(originTag(record.origin())));
+        placeholders.put("%location%", textOrEmpty(locationText(record.location())));
+        placeholders.put("%server%", textOrEmpty(record.server()));
+        placeholders.put("%amount%", textOrEmpty(amount > 0 ? String.valueOf(amount) : ""));
+        placeholders.put("%recipients%", textOrEmpty(recipients));
+        placeholders.put("%command-line%", textOrEmpty(commandLine));
+        placeholders.put("%ip%", textOrEmpty(ip));
+        placeholders.put("%damage%", textOrEmpty(damage));
+        placeholders.put("%weapon%", textOrEmpty(weapon));
+        placeholders.put("%cause%", textOrEmpty(cause));
+        placeholders.put("%via%", textOrEmpty(via));
+        placeholders.put("%extensions%", textOrEmpty(extensionValues.toString()));
+        placeholders.put("%item-name%", textOrEmpty(itemName));
+        placeholders.put("%item-enchants%", textOrEmpty(itemEnchants));
+        placeholders.put("%item-tags%", textOrEmpty(itemTags));
+        placeholders.put("%item-lore%", textOrEmpty(itemLore));
+        placeholders.put("%count-line%", count > 1
+                ? Component.newline().append(kv("Count", String.valueOf(count)))
+                : Component.empty());
+        placeholders.put("%server-line%", record.server() != null && !record.server().isBlank()
+                ? Component.newline().append(kv("Server", record.server()))
+                : Component.empty());
+        placeholders.put("%details%", joinedLines(details));
+
+        Messages messages = Messages.getInstance();
+        String eventKey = "results.hover.events." + record.event();
+        String templateKey = messages.hasTemplate(eventKey) ? eventKey : "results.hover.default";
+        return messages.formatComponents(templateKey, placeholders);
+    }
+
+    private static Component textOrEmpty(String value) {
+        return value == null ? Component.empty() : Component.text(value);
+    }
+
+    private static Component joinedLines(List<Component> lines) {
+        Component joined = Component.empty();
+        for (Component line : lines) {
+            joined = joined.append(Component.newline()).append(line);
         }
-        return hover;
+        return joined;
+    }
+
+    private static String itemTags(StoredItem item) {
+        if (item == null || item.tags() == null || item.tags().isBlank()) {
+            return "";
+        }
+        String tags = item.tags();
+        return tags.length() > MAX_TAGS_HOVER
+                ? tags.substring(0, MAX_TAGS_HOVER) + "…"
+                : tags;
+    }
+
+    private static List<String> visibleLore(List<String> lore) {
+        if (lore.size() <= MAX_LORE_LINES) {
+            return lore;
+        }
+        List<String> visible = new ArrayList<>(lore.subList(0, MAX_LORE_LINES));
+        visible.add("… (+" + (lore.size() - MAX_LORE_LINES) + " more)");
+        return visible;
     }
 
     private String verb(EventRecord record) {
@@ -397,7 +474,8 @@ public final class ResultRenderer {
         boolean hasName = item.name() != null && !item.name().isBlank();
         boolean hasLore = !item.lore().isEmpty();
         boolean hasEnchants = !item.enchants().isEmpty();
-        boolean hasTags = item.tags() != null && !item.tags().isBlank();
+        String tags = itemTags(item);
+        boolean hasTags = !tags.isEmpty();
         if (!hasName && !hasLore && !hasEnchants && !hasTags) {
             return;
         }
@@ -410,22 +488,13 @@ public final class ResultRenderer {
         if (hasTags) {
             // The full custom_data is searchable via itags:; the hover only
             // previews it so a kilobyte NBT blob can't blow up the tooltip.
-            String tags = item.tags();
-            String preview = tags.length() > MAX_TAGS_HOVER
-                    ? tags.substring(0, MAX_TAGS_HOVER) + "…"
-                    : tags;
-            lines.add(kv("Tags", preview));
+            lines.add(kv("Tags", tags));
         }
         if (hasLore) {
             lines.add(Component.text("Lore:", NamedTextColor.GRAY));
-            List<String> lore = item.lore();
-            int shown = Math.min(lore.size(), MAX_LORE_LINES);
-            for (int index = 0; index < shown; index++) {
-                lines.add(Component.text("  " + lore.get(index), NamedTextColor.GRAY));
-            }
-            if (lore.size() > MAX_LORE_LINES) {
-                lines.add(Component.text("  … (+" + (lore.size() - MAX_LORE_LINES) + " more)",
-                        NamedTextColor.DARK_GRAY));
+            List<String> lore = visibleLore(item.lore());
+            for (String line : lore) {
+                lines.add(Component.text("  " + line, NamedTextColor.GRAY));
             }
         }
     }

@@ -43,6 +43,21 @@ class MessagesTest {
     }
 
     @Test
+    void componentPlaceholdersStayLiteralAndSupportMultipleLines() {
+        Messages messages = new Messages(Map.of(
+                "custom", "<green>%player%</green>\n%detail%"
+        ));
+
+        Component formatted = messages.formatComponents("custom", Map.of(
+                "%player%", Component.text("<red>Alice</red>"),
+                "%detail%", Component.text("line one\nline two")
+        ));
+
+        assertThat(plain(formatted))
+                .isEqualTo("<red>Alice</red>\nline one\nline two");
+    }
+
+    @Test
     void placeholdersAreEscapedAgainstTagInjection() {
         Messages messages = new Messages(Map.of(
                 "feedback.info", "<gray>User said: </gray>%message%"
@@ -69,6 +84,33 @@ class MessagesTest {
         Messages loaded = Messages.load(tempDir, null);
         assertThat(plain(loaded.error("test"))).isEqualTo("[SG] ERROR: test");
         assertThat(loaded.raw("commands.no-results")).isEqualTo("Nada encontrado.");
+    }
+
+    @Test
+    void loadFromHoconReadsMultilineAndEventSpecificResultTemplates(@TempDir Path tempDir)
+            throws Exception {
+        String hocon = """
+            results {
+              line = "%player% - %action%"
+              hover {
+                default = """Source: %source%
+            Event: %event%"""
+                events {
+                  command = """%source% ran:
+            %command-line%"""
+                }
+              }
+            }
+            """;
+        Files.writeString(tempDir.resolve("messages.conf"), hocon);
+
+        Messages loaded = Messages.load(tempDir, null);
+
+        assertThat(loaded.raw("results.line")).isEqualTo("%player% - %action%");
+        assertThat(loaded.raw("results.hover.default")).isEqualTo("Source: %source%\nEvent: %event%");
+        assertThat(loaded.hasTemplate("results.hover.events.command")).isTrue();
+        assertThat(loaded.raw("results.hover.events.command"))
+                .isEqualTo("%source% ran:\n%command-line%");
     }
 
     @Test

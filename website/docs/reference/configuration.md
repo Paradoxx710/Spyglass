@@ -93,6 +93,22 @@ Results don't show that a line was blocked. Only `say` and `command` read this s
 | `tool.material` | `"REDSTONE_LAMP"` | The wand item. Reloads live |
 | `tool.lookback` | `"26w"` | How far back a wand click looks. Reloads live |
 
+## Log display
+
+The result row and hover tooltip are customizable in `plugins/Spyglass/messages.conf`. `results.line` is a MiniMessage template for both grouped and individual results:
+
+```hocon
+results {
+  line = "<gray>= </gray>%date%%origin-tag%<green>%player%</green> <white>%action%</white>%amount%%target%%count%%time%"
+}
+```
+
+The available row variables are `%date%`, `%origin-tag%`, `%leading-tags%`, `%player%` (or `%source%`), `%action%`, `%amount%`, `%target%`, `%count%`, and `%time%`. The date and count are empty for individual results; optional spacing is included in the values.
+
+The multiline `results.hover.default` template controls the standard tooltip. Optional event-specific templates under `results.hover.events` override it, using the event identifier as the key. For example, `events.command` can show `%command-line%` in a different layout. Hover variables include source/player, event/action, target, time, origin, location, server, amount/count, and event-specific values such as `%ip%`, `%damage%`, `%recipients%`, `%item-name%`, and `%item-lore%`. `%details%` inserts optional event, extension, and item details; `%count-line%` and `%server-line%` insert their corresponding optional lines. Placeholder values are escaped as text, so player names and logged values cannot inject MiniMessage formatting.
+
+These settings are loaded with `messages.conf` and apply after `/sg reload`.
+
 ## Other settings
 
 | Setting | Default | Meaning |
