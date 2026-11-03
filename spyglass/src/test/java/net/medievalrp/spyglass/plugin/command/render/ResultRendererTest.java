@@ -18,6 +18,8 @@ import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.medievalrp.spyglass.api.SpyglassApi;
 import net.medievalrp.spyglass.api.event.BlockUseRecord;
+import net.medievalrp.spyglass.api.event.BlockPlaceRecord;
+import net.medievalrp.spyglass.api.event.BlockSnapshot;
 import net.medievalrp.spyglass.api.event.ChatRecord;
 import net.medievalrp.spyglass.api.event.EntityDeathRecord;
 import net.medievalrp.spyglass.api.event.EntityHitRecord;
@@ -27,6 +29,7 @@ import net.medievalrp.spyglass.api.extension.DisplayRenderer;
 import net.medievalrp.spyglass.api.query.Flag;
 import net.medievalrp.spyglass.api.util.BlockLocation;
 import net.medievalrp.spyglass.plugin.config.SpyglassConfig;
+import org.bukkit.Material;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -86,6 +89,65 @@ class ResultRendererTest {
         assertThat(PlainTextComponentSerializer.plainText().serialize(rendered))
                 .isEqualTo("Alice|triggered| SCULK_SENSOR");
         assertThat(hoverPlain(rendered)).isEqualTo("triggered\nworld 10,64,20");
+    }
+
+    @Test
+    void signEditLineShowsQuotedTextFromTheEditedFaceAndFullYear() {
+        Instant occurred = Instant.now().minusSeconds(17 * 60L);
+        BlockPlaceRecord record = signEditRecord(occurred,
+                List.of("", "", "", ""),
+                List.of("untouched back", "", "", ""),
+                List.of("hello i'm a message in first line", "second line", "", ""),
+                List.of("untouched back", "", "", ""));
+        SpyglassApi api = mock(SpyglassApi.class);
+        when(api.displayRenderer("sign-edit")).thenReturn(Optional.empty());
+        ResultRenderer renderer = new ResultRenderer(api, configWithVerb("sign-edit", "edited"));
+
+        String rendered = PlainTextComponentSerializer.plainText().serialize(
+                renderer.renderAggregation(
+                        new net.medievalrp.spyglass.api.query.QueryResult.RecordAggregation(record, 1),
+                        EnumSet.noneOf(Flag.class), true));
+        String date = occurred.atZone(java.time.ZoneId.systemDefault())
+                .format(java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy"));
+
+        assertThat(rendered).isEqualTo("= (" + date
+                + ") Alice edited OAK_SIGN with \"hello i'm a message in first line\", \"second line\" 17m ago");
+    }
+
+    @Test
+    void signTextPlaceholderCanBeUsedInCustomResultTemplate() {
+        Messages.setInstance(new Messages(Map.of(
+                "results.event-lines.sign-edit", "%sign-text%"
+        )));
+        Instant occurred = Instant.now();
+        BlockPlaceRecord record = signEditRecord(occurred,
+                List.of("", "", "", ""),
+                List.of("old back", "", "", ""),
+                List.of("", "new front", "", ""),
+                List.of("old back", "", "", ""));
+        SpyglassApi api = mock(SpyglassApi.class);
+        when(api.displayRenderer("sign-edit")).thenReturn(Optional.empty());
+        ResultRenderer renderer = new ResultRenderer(api, configWithVerb("sign-edit", "edited"));
+
+        String rendered = PlainTextComponentSerializer.plainText().serialize(
+                renderer.renderSingle(record, EnumSet.noneOf(Flag.class), true));
+
+        assertThat(rendered).isEqualTo("\"new front\"");
+    }
+
+    private static BlockPlaceRecord signEditRecord(Instant occurred,
+                                                    List<String> oldFront,
+                                                    List<String> oldBack,
+                                                    List<String> newFront,
+                                                    List<String> newBack) {
+        BlockSnapshot before = new BlockSnapshot(Material.OAK_SIGN, "minecraft:oak_sign",
+                List.of(), oldFront, oldBack, List.of(), null, List.of());
+        BlockSnapshot after = new BlockSnapshot(Material.OAK_SIGN, "minecraft:oak_sign",
+                List.of(), newFront, newBack, List.of(), null, List.of());
+        return new BlockPlaceRecord(UUID.randomUUID(), "sign-edit", occurred,
+                occurred.plusSeconds(60), Origin.player(), Source.player(PLAYER_ID, "Alice"),
+                new BlockLocation(WORLD_ID, "world", 10, 64, 20), "test",
+                "OAK_SIGN", before, after);
     }
 
     @Test

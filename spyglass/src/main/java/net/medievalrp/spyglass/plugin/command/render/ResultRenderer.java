@@ -14,6 +14,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import net.medievalrp.spyglass.api.SpyglassApi;
 import net.medievalrp.spyglass.api.event.BlockBreakRecord;
 import net.medievalrp.spyglass.api.event.BlockPlaceRecord;
+import net.medievalrp.spyglass.api.event.BlockSnapshot;
 import net.medievalrp.spyglass.api.event.ChatRecord;
 import net.medievalrp.spyglass.api.event.CommandRecord;
 import net.medievalrp.spyglass.api.event.BlockUseRecord;
@@ -140,11 +141,16 @@ public final class ResultRenderer {
                 ? Component.text(" " + qty, NamedTextColor.GREEN)
                 : Component.empty());
         placeholders.put("%target%", renderedTarget);
+        String signText = signText(record);
+        placeholders.put("%sign-text%", textOrEmpty(signText));
         placeholders.put("%count%", grouped
                 ? Component.text(" x" + count, NamedTextColor.GREEN)
                 : Component.empty());
         placeholders.put("%time%", Component.text(" " + timeAgo(record.occurred()), NamedTextColor.WHITE));
-        Component rendered = Messages.getInstance().formatComponents("results.line", placeholders)
+        Messages messages = Messages.getInstance();
+        String eventLineKey = "results.event-lines." + record.event();
+        String lineKey = messages.hasTemplate(eventLineKey) ? eventLineKey : "results.line";
+        Component rendered = messages.formatComponents(lineKey, placeholders)
                 .hoverEvent(HoverEvent.showText(hover(record, count, showIp)));
         if (grouped) {
             // Grouped result: click drills down into the per-player,
@@ -253,7 +259,7 @@ public final class ResultRenderer {
 
     private static String shortDate(Instant occurred) {
         return occurred.atZone(java.time.ZoneId.systemDefault())
-                .format(java.time.format.DateTimeFormatter.ofPattern("d/M/yy"));
+                .format(java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy"));
     }
 
     public static Component pageHeader(int page, int totalPages, int totalResults) {
@@ -365,6 +371,7 @@ public final class ResultRenderer {
         placeholders.put("%action%", textOrEmpty(verb(record)));
         placeholders.put("%count%", textOrEmpty(count > 1 ? String.valueOf(count) : ""));
         placeholders.put("%target%", textOrEmpty(targetOf(record, showIp)));
+        placeholders.put("%sign-text%", textOrEmpty(signText(record)));
         placeholders.put("%when%", textOrEmpty(timestamp));
         placeholders.put("%time%", textOrEmpty(timestamp));
         placeholders.put("%time-ago%", textOrEmpty(timeAgo(record.occurred())));
@@ -402,6 +409,30 @@ public final class ResultRenderer {
 
     private static Component textOrEmpty(String value) {
         return value == null ? Component.empty() : Component.text(value);
+    }
+
+    private static String signText(EventRecord record) {
+        if (!(record instanceof BlockPlaceRecord place) || !"sign-edit".equals(record.event())) {
+            return "";
+        }
+        BlockSnapshot before = place.originalBlock();
+        BlockSnapshot after = place.newBlock();
+        if (before == null || after == null) {
+            return "";
+        }
+        List<String> editedLines;
+        if (!before.signFront().equals(after.signFront())) {
+            editedLines = after.signFront();
+        } else if (!before.signBack().equals(after.signBack())) {
+            editedLines = after.signBack();
+        } else {
+            return "\"\"";
+        }
+        String text = editedLines.stream()
+                .filter(line -> line != null && !line.isBlank())
+                .map(line -> "\"" + line.replace("\"", "\\\"") + "\"")
+                .collect(java.util.stream.Collectors.joining(", "));
+        return text.isEmpty() ? "\"\"" : text;
     }
 
     private static Component joinedLines(List<Component> lines) {

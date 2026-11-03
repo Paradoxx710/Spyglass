@@ -40,6 +40,8 @@ public final class Messages {
             Map.entry("commands.page-header", "<green>--- </green><aqua>Spyglass Search</aqua><gray> (Page %page%/%total%)</gray><green> ---</green>"),
             Map.entry("results.ip-hidden", "(ip hidden)"),
             Map.entry("results.line", "<gray>= </gray>%date%%origin-tag%%leading-tags%<green>%player%</green> <white>%action%</white>%amount%%target%%count%%time%"),
+            Map.entry("results.event-lines.sign-edit",
+                    "<gray>= </gray>%date%%origin-tag%%leading-tags%<green>%player%</green> <white>%action%</white>%target% with <white>%sign-text%</white>%time%"),
             Map.entry("results.hover.default",
                     "<gray>Source: </gray><white>%source%</white>\n"
                     + "<gray>Event: </gray><white>%event%</white>%count-line%\n"
