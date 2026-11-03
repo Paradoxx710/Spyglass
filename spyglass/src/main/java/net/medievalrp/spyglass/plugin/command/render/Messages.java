@@ -49,6 +49,8 @@ public final class Messages {
         if (templates != null) {
             merged.putAll(templates);
         }
+        String prefix = merged.get("prefix");
+        merged.replaceAll((key, value) -> value.replace("${prefix}", prefix));
         this.templates = Collections.unmodifiableMap(merged);
     }
 

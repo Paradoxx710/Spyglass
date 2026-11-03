@@ -28,6 +28,7 @@ import net.medievalrp.spyglass.api.util.BlockLocation;
 import net.medievalrp.spyglass.plugin.command.PageCache;
 import net.medievalrp.spyglass.plugin.command.param.QueryStringParser;
 import net.medievalrp.spyglass.plugin.command.render.ResultRenderer;
+import net.medievalrp.spyglass.plugin.config.SpyglassConfig;
 import org.bukkit.command.CommandSender;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
@@ -68,6 +69,10 @@ class SearchServiceTest {
                 ServiceSupport.synchronous(), ipResolver, Logger.getLogger("test"));
 
         TestFixture() {
+            SpyglassConfig config = mock(SpyglassConfig.class);
+            when(parser.config()).thenReturn(config);
+            when(config.searchPermission(any(String.class))).thenReturn("spyglass.search");
+            when(sender.hasPermission("spyglass.search")).thenReturn(true);
             when(renderer.renderSingle(any(EventRecord.class), any(), anyBoolean(), anyBoolean()))
                     .thenReturn(Component.text("rendered"));
             when(renderer.renderAggregation(any(), any(), anyBoolean(), anyBoolean()))
