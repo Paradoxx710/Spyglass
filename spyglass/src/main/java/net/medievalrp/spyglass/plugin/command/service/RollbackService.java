@@ -1,6 +1,7 @@
 package net.medievalrp.spyglass.plugin.command.service;
 
 import net.medievalrp.spyglass.plugin.command.render.Feedback;
+import net.medievalrp.spyglass.plugin.command.render.Messages;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -308,14 +309,14 @@ public final class RollbackService {
                 }
             }
         } else if (predicate instanceof net.medievalrp.spyglass.api.query.QueryPredicate.And and) {
-            for (net.medievalrp.spyglass.api.query.QueryPredicate child : and.clauses()) {
+            for (net.medievalrp.spyglass.api.query.QueryPredicate child : and.predicates()) {
                 String denied = findDeniedRollbackEvent(child, sender);
                 if (denied != null) {
                     return denied;
                 }
             }
         } else if (predicate instanceof net.medievalrp.spyglass.api.query.QueryPredicate.Not not) {
-            return findDeniedRollbackEvent(not.negated(), sender);
+            return findDeniedRollbackEvent(not.predicate(), sender);
         }
         return null;
     }
