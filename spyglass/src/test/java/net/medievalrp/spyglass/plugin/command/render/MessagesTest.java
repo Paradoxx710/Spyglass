@@ -1,0 +1,80 @@
+package net.medievalrp.spyglass.plugin.command.render;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+class MessagesTest {
+
+    private static String plain(Component c) {
+        return PlainTextComponentSerializer.plainText().serialize(c);
+    }
+
+    @AfterEach
+    void resetMessages() {
+        Messages.setInstance(null);
+    }
+
+    @Test
+    void defaultsProvideExpectedHouseStyle() {
+        Messages messages = Messages.getInstance();
+        Component error = messages.error("database unreachable");
+        assertThat(plain(error)).isEqualTo("«Spyglass» (Error) database unreachable");
+
+        Component info = messages.info("hello");
+        assertThat(plain(info)).isEqualTo("«Spyglass» hello");
+    }
+
+    @Test
+    void customTemplateOverridesDefault() {
+        Messages messages = new Messages(Map.of(
+                "feedback.error", "<red>[CustomError] %message%</red>"
+        ));
+
+        Component error = messages.error("boom");
+        assertThat(plain(error)).isEqualTo("[CustomError] boom");
+    }
+
+    @Test
+    void placeholdersAreEscapedAgainstTagInjection() {
+        Messages messages = new Messages(Map.of(
+                "feedback.info", "<gray>User said: </gray>%message%"
+        ));
+
+        Component component = messages.info("<red>I am red</red>");
+        // Escaped tags appear literally in plain text, not parsed as formatting
+        assertThat(plain(component)).isEqualTo("User said: <red>I am red</red>");
+    }
+
+    @Test
+    void loadFromHoconFileReadsCustomConfig(@TempDir Path tempDir) throws Exception {
+        String hocon = """
+            prefix = "[SG]"
+            feedback {
+              error = "${prefix} ERROR: %message%"
+            }
+            commands {
+              no-results = "Nada encontrado."
+            }
+            """;
+        Files.writeString(tempDir.resolve("messages.conf"), hocon);
+
+        Messages loaded = Messages.load(tempDir, null);
+        assertThat(plain(loaded.error("test"))).isEqualTo("[SG] ERROR: test");
+        assertThat(loaded.raw("commands.no-results")).isEqualTo("Nada encontrado.");
+    }
+
+    @Test
+    void missingKeyFallsBackToDefault() {
+        Messages messages = new Messages(Map.of("custom.key", "value"));
+        // Unset key falls back to default
+        assertThat(messages.raw("commands.no-results")).isEqualTo("No results.");
+    }
+}

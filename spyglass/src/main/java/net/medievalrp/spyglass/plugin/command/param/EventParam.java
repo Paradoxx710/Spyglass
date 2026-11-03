@@ -63,7 +63,9 @@ public final class EventParam implements QueryParamHandler {
             CommandSender sender = context != null ? context.sender() : null;
             String requiredPermission = permissionResolver.apply(name);
             if (sender != null && requiredPermission != null && !sender.hasPermission(requiredPermission)) {
-                throw new ParamParseException("You do not have permission to query the '" + name + "' action.");
+                String template = net.medievalrp.spyglass.plugin.command.render.Messages.getInstance()
+                        .raw("commands.action-no-permission");
+                throw new ParamParseException(template.replace("%action%", name));
             }
             addWithRolledCounterpart(negated ? excludes : includes, name);
         }

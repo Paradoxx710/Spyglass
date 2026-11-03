@@ -3,12 +3,12 @@ package net.medievalrp.spyglass.plugin.command.render;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.medievalrp.spyglass.api.util.BlockLocation;
+import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Prefixed Adventure components for the common sender feedback categories,
- * matching v1's {@code «Spyglass» (Error) ...} house style so an operator
- * moving between plugins sees consistent chat framing.
+ * backed by configurable templates in {@link Messages}.
  */
 @ApiStatus.Internal
 public final class Feedback {
@@ -23,78 +23,69 @@ public final class Feedback {
     private Feedback() {
     }
 
+    public static Component error(CommandSender sender, String message) {
+        return Messages.getInstance().error(sender, message);
+    }
+
     public static Component error(String message) {
-        return Component.text()
-                .append(PREFIX)
-                .append(Component.text(" (Error) ", NamedTextColor.RED))
-                .append(Component.text(message, NamedTextColor.GRAY))
-                .asComponent();
+        return Messages.getInstance().error(message);
+    }
+
+    public static Component info(CommandSender sender, String message) {
+        return Messages.getInstance().info(sender, message);
     }
 
     public static Component info(String message) {
-        return Component.text()
-                .append(PREFIX)
-                .append(Component.text(" ", NamedTextColor.WHITE))
-                .append(Component.text(message, NamedTextColor.GRAY))
-                .asComponent();
+        return Messages.getInstance().info(message);
+    }
+
+    public static Component warn(CommandSender sender, String message) {
+        return Messages.getInstance().warn(sender, message);
     }
 
     public static Component warn(String message) {
-        return Component.text()
-                .append(PREFIX)
-                .append(Component.text(" ", NamedTextColor.WHITE))
-                .append(Component.text(message, NamedTextColor.YELLOW))
-                .asComponent();
+        return Messages.getInstance().warn(message);
     }
 
-    /**
-     * `«Spyglass» <green>message</green>`. v1's Formatter.success had no
-     * space after the prefix - the only category that didn't - which
-     * rendered as `«Spyglass»Spyglass version x.y.z` on /sg version (#251).
-     * All four categories now frame identically.
-     */
+    public static Component success(CommandSender sender, String message) {
+        return Messages.getInstance().success(sender, message);
+    }
+
     public static Component success(String message) {
-        return Component.text()
-                .append(PREFIX)
-                .append(Component.text(" ", NamedTextColor.WHITE))
-                .append(Component.text(message, NamedTextColor.GREEN))
-                .asComponent();
+        return Messages.getInstance().success(message);
     }
 
-    /** Plain gray, no prefix — matches v1's Formatter.bonus (skip reasons, etc). */
+    public static Component bonus(CommandSender sender, String message) {
+        return Messages.getInstance().bonus(sender, message);
+    }
+
     public static Component bonus(String message) {
-        return Component.text(message, NamedTextColor.GRAY);
+        return Messages.getInstance().bonus(message);
     }
 
-    /** Dark-aqua "Querying records..." — v1's in-progress ping. No prefix. */
+    public static Component querying(CommandSender sender) {
+        return Messages.getInstance().querying(sender);
+    }
+
     public static Component querying() {
-        return Component.text("Querying records...", NamedTextColor.DARK_AQUA);
+        return Messages.getInstance().querying();
     }
 
-    /** Plain green tool feedback, no prefix — matches v1's wand chat lines. */
+    public static Component toolOk(CommandSender sender, String message) {
+        return Messages.getInstance().toolOk(sender, message);
+    }
+
     public static Component toolOk(String message) {
-        return Component.text(message, NamedTextColor.GREEN);
+        return Messages.getInstance().toolOk(message);
     }
 
-    /**
-     * {@code «Spyglass» --- TARGET at x y z (last 26w) ---}, used by the
-     * wand before a lookup. The window is always shown so an empty result
-     * reads as "nothing inside the window", never "no history exists"
-     * (#271).
-     */
+    public static Component inspectHeader(CommandSender sender, String target, BlockLocation location,
+                                          net.medievalrp.spyglass.api.util.Duration window) {
+        return Messages.getInstance().inspectHeader(sender, target, location, window);
+    }
+
     public static Component inspectHeader(String target, BlockLocation location,
                                           net.medievalrp.spyglass.api.util.Duration window) {
-        return Component.text()
-                .append(PREFIX)
-                .append(Component.text(" --- ", NamedTextColor.GREEN))
-                .append(Component.text(target, NamedTextColor.AQUA))
-                .append(Component.text(" at ", NamedTextColor.WHITE))
-                .append(Component.text(
-                        location.x() + " " + location.y() + " " + location.z(),
-                        NamedTextColor.GREEN))
-                .append(Component.text(" (last " + window.compact() + ")",
-                        NamedTextColor.GRAY))
-                .append(Component.text(" ---", NamedTextColor.GREEN))
-                .asComponent();
+        return Messages.getInstance().inspectHeader(target, location, window);
     }
 }

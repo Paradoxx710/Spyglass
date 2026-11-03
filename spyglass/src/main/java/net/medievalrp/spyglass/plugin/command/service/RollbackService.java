@@ -240,7 +240,8 @@ public final class RollbackService {
 
         String deniedRollbackEvent = findDeniedRollbackEvent(request.predicates(), sender);
         if (deniedRollbackEvent != null) {
-            sender.sendMessage(Feedback.error("You do not have permission to rollback the '" + deniedRollbackEvent + "' action."));
+            String template = Messages.getInstance().raw("commands.action-rollback-no-permission");
+            sender.sendMessage(Feedback.error(template.replace("%action%", deniedRollbackEvent)));
             return;
         }
 

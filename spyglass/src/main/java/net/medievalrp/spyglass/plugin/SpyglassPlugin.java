@@ -228,6 +228,7 @@ public final class SpyglassPlugin extends JavaPlugin {
         }
         try {
             config = SpyglassConfig.load(this);
+            net.medievalrp.spyglass.plugin.command.render.Messages.load(getDataFolder().toPath(), getLogger());
         } catch (Exception ex) {
             getLogger().log(Level.SEVERE, "Failed to load config. Disabling the plugin.", ex);
             setEnabled(false);
@@ -830,10 +831,13 @@ public final class SpyglassPlugin extends JavaPlugin {
                 wandListener.setConfig(next);
                 renderer.setConfig(next);
                 config = next;
-                sender.sendMessage("Spyglass configuration reloaded. Event toggles, retention, redaction and wand settings are active.");
+                net.medievalrp.spyglass.plugin.command.render.Messages.load(getDataFolder().toPath(), getLogger());
+                sender.sendMessage(net.medievalrp.spyglass.plugin.command.render.Feedback.success(
+                        net.medievalrp.spyglass.plugin.command.render.Messages.getInstance().raw("commands.config-reloaded")));
             } catch (Exception failure) {
                 getLogger().warning("Spyglass reload failed: " + failure.getMessage());
-                sender.sendMessage("Spyglass could not reload config.conf; check the console.");
+                sender.sendMessage(net.medievalrp.spyglass.plugin.command.render.Feedback.error(
+                        net.medievalrp.spyglass.plugin.command.render.Messages.getInstance().raw("commands.config-reload-failed")));
             }
         });
         var updateNotifier = new net.medievalrp.spyglass.plugin.update.UpdateNotifier(this);
