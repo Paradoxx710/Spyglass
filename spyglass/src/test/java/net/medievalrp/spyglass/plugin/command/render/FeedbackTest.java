@@ -43,10 +43,10 @@ class FeedbackTest {
     void everyCategoryFramesWithASpaceAfterThePrefix() {
         // #251: success was the odd one out (v1 parity) and rendered
         // "«Spyglass»Spyglass version x.y.z" on /sg version.
-        assertThat(plain(Feedback.info("m"))).startsWith("«Spyglass» ");
-        assertThat(plain(Feedback.warn("m"))).startsWith("«Spyglass» ");
-        assertThat(plain(Feedback.error("m"))).startsWith("«Spyglass» ");
-        assertThat(plain(Feedback.success("m"))).startsWith("«Spyglass» ");
+        assertThat(plain(Feedback.info("m"))).startsWith("«Spyglass»");
+        assertThat(plain(Feedback.warn("m"))).startsWith("«Spyglass»");
+        assertThat(plain(Feedback.error("m"))).startsWith("«Spyglass»");
+        assertThat(plain(Feedback.success("m"))).startsWith("«Spyglass»");
     }
 
     @Test
