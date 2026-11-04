@@ -25,30 +25,30 @@ public final class Messages {
 
     private static final Map<String, String> DEFAULTS = Map.ofEntries(
             Map.entry("prefix", "<green>«</green><aqua>Spyglass</aqua><green>»</green>"),
-            Map.entry("feedback.error", "<green>«</green><aqua>Spyglass</aqua><green>»</green><red> (Error) </red><gray>%message%</gray>"),
-            Map.entry("feedback.info", "<green>«</green><aqua>Spyglass</aqua><green>»</green> <gray>%message%</gray>"),
-            Map.entry("feedback.warn", "<green>«</green><aqua>Spyglass</aqua><green>»</green> <yellow>%message%</yellow>"),
-            Map.entry("feedback.success", "<green>«</green><aqua>Spyglass</aqua><green>»</green> <green>%message%</green>"),
-            Map.entry("feedback.bonus", "<gray>%message%</gray>"),
+            Map.entry("feedback.error", "<green>«</green><aqua>Spyglass</aqua><green>»</green><red> (Error) </red>%message%"),
+            Map.entry("feedback.info", "<green>«</green><aqua>Spyglass</aqua><green>»</green>%message%"),
+            Map.entry("feedback.warn", "<green>«</green><aqua>Spyglass</aqua><green>»</green>%message%"),
+            Map.entry("feedback.success", "<green>«</green><aqua>Spyglass</aqua><green>»</green>%message%"),
+            Map.entry("feedback.bonus", "%message%"),
             Map.entry("feedback.querying", "<dark_aqua>Querying records...</dark_aqua>"),
-            Map.entry("feedback.tool-ok", "<green>%message%</green>"),
-            Map.entry("feedback.inspect-header", "<green>«</green><aqua>Spyglass</aqua><green>»</green><green> --- </green><aqua>%target%</aqua><white> at </white><green>%location%</green><gray> (last %window%)</gray><green> ---</green>"),
+            Map.entry("feedback.tool-ok", "%message%"),
+            Map.entry("feedback.inspect-header", "<green>«</green><aqua>Spyglass</aqua><green>»</green><green> --- </green>%target%<white> at </white>%location%<gray> (last %window%)</gray><green> ---</green>"),
             Map.entry("commands.no-results", "No results."),
             Map.entry("commands.action-no-permission", "You do not have permission to query the '%action%' action."),
             Map.entry("commands.action-rollback-no-permission", "You do not have permission to rollback the '%action%' action."),
             Map.entry("commands.rollback-queued", "Rollback queued at position %position% (id %id%). View / cancel with /sg rbqueue."),
-            Map.entry("commands.page-header", "<green>--- </green><aqua>Spyglass Search</aqua><gray> (Page %page%/%total%)</gray><green> ---</green>"),
+            Map.entry("commands.page-header", "<green>--- </green><aqua>Spyglass Search</aqua> (Page %page%/%total%)<green> ---</green>"),
             Map.entry("results.ip-hidden", "(ip hidden)"),
-            Map.entry("results.line", "<gray>= </gray>%date%%origin-tag%%leading-tags%<green>%player%</green> <white>%action%</white>%amount%%target%%count%%time%"),
+            Map.entry("results.line", "<gray>= </gray>%date%%origin-tag%%leading-tags%%player% %action%%amount%%target%%count%%time%"),
             Map.entry("results.event-lines.sign-edit",
-                    "<gray>= </gray>%date%%origin-tag%%leading-tags%<green>%player%</green> <white>%action%</white>%target% with <white>%sign-text%</white>%time%"),
+                    "<gray>= </gray>%date%%origin-tag%%leading-tags%%player% %action%%target% with %sign-text%%time%"),
             Map.entry("results.hover.default",
-                    "<gray>Source: </gray><white>%source%</white>\n"
-                    + "<gray>Event: </gray><white>%event%</white>%count-line%\n"
-                    + "<gray>Target: </gray><white>%target%</white>\n"
-                    + "<gray>When: </gray><white>%when%</white>\n"
-                    + "<gray>Origin: </gray><white>%origin%</white>\n"
-                    + "<gray>Location: </gray><white>%location%</white>"
+                    "<gray>Source: </gray>%source%\n"
+                    + "<gray>Event: </gray>%event%%count-line%\n"
+                    + "<gray>Target: </gray>%target%\n"
+                    + "<gray>When: </gray>%when%\n"
+                    + "<gray>Origin: </gray>%origin%\n"
+                    + "<gray>Location: </gray>%location%"
                     + "%server-line%%details%"),
             Map.entry("tool.name", "<gold><bold>Spyglass Wand</bold></gold>")
     );
