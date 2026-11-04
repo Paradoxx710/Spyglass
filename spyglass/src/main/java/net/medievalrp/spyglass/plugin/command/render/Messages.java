@@ -49,14 +49,20 @@ public final class Messages {
                     + "<gray>When: </gray><white>%when%</white>\n"
                     + "<gray>Origin: </gray><white>%origin%</white>\n"
                     + "<gray>Location: </gray><white>%location%</white>"
-                    + "%server-line%%details%")
+                    + "%server-line%%details%"),
+            Map.entry("tool.name", "<gold><bold>Spyglass Wand</bold></gold>")
     );
 
     private static volatile Messages instance = new Messages(DEFAULTS);
 
     private final Map<String, String> templates;
+    private final Map<String, java.util.List<String>> listTemplates;
 
     public Messages(Map<String, String> templates) {
+        this(templates, Collections.emptyMap());
+    }
+
+    private Messages(Map<String, String> templates, Map<String, java.util.List<String>> listTemplates) {
         Map<String, String> merged = new HashMap<>(DEFAULTS);
         if (templates != null) {
             merged.putAll(templates);
@@ -64,6 +70,18 @@ public final class Messages {
         String prefix = merged.get("prefix");
         merged.replaceAll((key, value) -> value.replace("${prefix}", prefix));
         this.templates = Collections.unmodifiableMap(merged);
+
+        Map<String, java.util.List<String>> lists = new HashMap<>();
+        if (listTemplates != null) {
+            listTemplates.forEach((key, value) -> {
+                if (value != null) {
+                    lists.put(key, value.stream()
+                            .map(line -> line == null ? "" : line.replace("${prefix}", prefix))
+                            .toList());
+                }
+            });
+        }
+        this.listTemplates = Collections.unmodifiableMap(lists);
     }
 
     public static Messages getInstance() {
@@ -100,8 +118,9 @@ public final class Messages {
             HoconConfigurationLoader loader = HoconConfigurationLoader.builder().path(file).build();
             ConfigurationNode root = loader.load();
             Map<String, String> map = new HashMap<>();
-            flatten("", root, map);
-            Messages loaded = new Messages(map);
+            Map<String, java.util.List<String>> lists = new HashMap<>();
+            flatten("", root, map, lists);
+            Messages loaded = new Messages(map, lists);
             setInstance(loaded);
             return loaded;
         } catch (Exception ex) {
@@ -113,12 +132,23 @@ public final class Messages {
         }
     }
 
-    private static void flatten(String prefix, ConfigurationNode node, Map<String, String> map) {
-        if (node.isMap()) {
+    private static void flatten(String prefix, ConfigurationNode node,
+                                Map<String, String> map,
+                                Map<String, java.util.List<String>> lists) {
+        if (node.isList()) {
+            java.util.List<String> values = new java.util.ArrayList<>();
+            for (ConfigurationNode child : node.childrenList()) {
+                String value = child.getString();
+                if (value != null) {
+                    values.add(value);
+                }
+            }
+            lists.put(prefix, java.util.List.copyOf(values));
+        } else if (node.isMap()) {
             for (Map.Entry<Object, ? extends ConfigurationNode> entry : node.childrenMap().entrySet()) {
                 String key = String.valueOf(entry.getKey());
                 String nextPrefix = prefix.isEmpty() ? key : prefix + "." + key;
-                flatten(nextPrefix, entry.getValue(), map);
+                flatten(nextPrefix, entry.getValue(), map, lists);
             }
         } else {
             String val = node.getString();
@@ -134,6 +164,19 @@ public final class Messages {
 
     public boolean hasTemplate(String key) {
         return templates.containsKey(key);
+    }
+
+    /**
+     * A configured list value (for example {@code tool.lore}). A scalar at the
+     * same key is treated as a one-line list; an absent key is empty.
+     */
+    public java.util.List<String> rawList(String key) {
+        java.util.List<String> list = listTemplates.get(key);
+        if (list != null) {
+            return list;
+        }
+        String scalar = templates.get(key);
+        return scalar != null ? java.util.List.of(scalar) : java.util.List.of();
     }
 
     public Component get(String key) {
@@ -153,7 +196,10 @@ public final class Messages {
     }
 
     public Component format(String key, CommandSender sender, Map<String, String> placeholders) {
-        String template = raw(key);
+        // Translate legacy codes before substituting placeholders, so a player
+        // or plugin-supplied value containing "&c" stays literal text instead
+        // of becoming formatting.
+        String template = LegacyColors.translate(raw(key));
         if (placeholders != null && !placeholders.isEmpty()) {
             for (Map.Entry<String, String> entry : placeholders.entrySet()) {
                 String k = entry.getKey();
@@ -165,11 +211,7 @@ public final class Messages {
         if (sender != null) {
             template = PlaceholderSupport.apply(sender, template);
         }
-        try {
-            return MINI_MESSAGE.deserialize(template);
-        } catch (Exception ex) {
-            return Component.text(template);
-        }
+        return deserialize(template);
     }
 
     public Component formatComponents(String key, Map<String, Component> placeholders) {
@@ -201,6 +243,14 @@ public final class Messages {
             }
         }
         return formatted;
+    }
+
+    private static Component deserialize(String template) {
+        try {
+            return MINI_MESSAGE.deserialize(template);
+        } catch (Exception ex) {
+            return Component.text(template);
+        }
     }
 
     private static Map<String, String> toMap(Object... pairs) {
@@ -274,6 +324,18 @@ public final class Messages {
 
     public Component toolOk(String message) {
         return toolOk(null, message);
+    }
+
+    /** Display name for the inspector wand ({@code tool.name}). */
+    public Component toolName() {
+        return format("tool.name", (CommandSender) null, Collections.emptyMap());
+    }
+
+    /** Lore lines for the inspector wand ({@code tool.lore}); empty = no lore. */
+    public java.util.List<Component> toolLore() {
+        return rawList("tool.lore").stream()
+                .map(line -> deserialize(LegacyColors.translate(line)))
+                .toList();
     }
 
     public Component inspectHeader(CommandSender sender, String target, BlockLocation location, Duration window) {

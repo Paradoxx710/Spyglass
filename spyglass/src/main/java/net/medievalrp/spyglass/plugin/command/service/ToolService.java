@@ -2,8 +2,8 @@ package net.medievalrp.spyglass.plugin.command.service;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import net.medievalrp.spyglass.plugin.command.render.Feedback;
+import net.medievalrp.spyglass.plugin.command.render.Messages;
 
 import java.util.Set;
 import java.util.UUID;
@@ -168,7 +168,12 @@ public final class ToolService {
                     ItemMeta meta = stack.getItemMeta();
                     if (meta != null) {
                         meta.getPersistentDataContainer().set(WAND_KEY, PersistentDataType.BYTE, (byte) 1);
-                        meta.displayName(Component.text("Spyglass Wand", NamedTextColor.GOLD).decorate(TextDecoration.BOLD));
+                        Messages messages = Messages.getInstance();
+                        meta.displayName(messages.toolName());
+                        java.util.List<Component> lore = messages.toolLore();
+                        if (!lore.isEmpty()) {
+                            meta.lore(lore);
+                        }
                         stack.setItemMeta(meta);
                     }
                     if (player.getInventory().firstEmpty() >= 0) {

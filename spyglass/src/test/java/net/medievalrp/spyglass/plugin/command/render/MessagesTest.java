@@ -93,11 +93,11 @@ class MessagesTest {
             results {
               line = "%player% - %action%"
               hover {
-                default = """Source: %source%
-            Event: %event%"""
+                default = \"\"\"Source: %source%
+            Event: %event%\"\"\"
                 events {
-                  command = """%source% ran:
-            %command-line%"""
+                  command = \"\"\"%source% ran:
+            %command-line%\"\"\"
                 }
               }
             }
@@ -118,5 +118,54 @@ class MessagesTest {
         Messages messages = new Messages(Map.of("custom.key", "value"));
         // Unset key falls back to default
         assertThat(messages.raw("commands.no-results")).isEqualTo("No results.");
+    }
+
+    @Test
+    void legacyColorCodesRenderAlongsideMiniMessage() {
+        Messages messages = new Messages(Map.of(
+                "feedback.info", "&6<bold>Gold</bold> &cRed"
+        ));
+
+        assertThat(plain(messages.info(""))).isEqualTo("Gold Red");
+    }
+
+    @Test
+    void legacyCodesInPlaceholderValuesStayLiteral() {
+        Messages messages = new Messages(Map.of(
+                "feedback.info", "%message%"
+        ));
+
+        // Translation runs on the template, not on player/plugin input.
+        assertThat(plain(messages.info("&cnot red"))).isEqualTo("&cnot red");
+    }
+
+    @Test
+    void literalAmpersandEscapeIsPreserved() {
+        assertThat(LegacyColors.translate("100&& off"))
+                .isEqualTo("100& off");
+    }
+
+    @Test
+    void listValuesAreFlattenedAndRenderedAsWandLore(@TempDir Path tempDir) throws Exception {
+        String hocon = """
+            tool {
+              name = "&6Custom Wand"
+              lore = ["line one", "&cline two"]
+            }
+            """;
+        Files.writeString(tempDir.resolve("messages.conf"), hocon);
+
+        Messages loaded = Messages.load(tempDir, null);
+        assertThat(plain(loaded.toolName())).isEqualTo("Custom Wand");
+        assertThat(loaded.toolLore()).extracting(MessagesTest::plain)
+                .containsExactly("line one", "line two");
+    }
+
+    @Test
+    void defaultWandHasNameAndNoLore() {
+        Messages messages = new Messages(Map.of());
+
+        assertThat(plain(messages.toolName())).isEqualTo("Spyglass Wand");
+        assertThat(messages.toolLore()).isEmpty();
     }
 }

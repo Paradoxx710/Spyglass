@@ -93,6 +93,8 @@ Results don't show that a line was blocked. Only `say` and `command` read this s
 | `tool.material` | `"REDSTONE_LAMP"` | The wand item. Reloads live |
 | `tool.lookback` | `"26w"` | How far back a wand click looks. Reloads live |
 
+The wand's display name and lore are configured in `messages.conf` under `tool.name` and `tool.lore` (a list of lines).
+
 ## Log display
 
 The result row and hover tooltip are customizable in `plugins/Spyglass/messages.conf`. `results.line` is a MiniMessage template for both grouped and individual results:
