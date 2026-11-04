@@ -60,7 +60,13 @@ public final class CraftBookSignListener implements RecordingListener {
         return Set.of("useSign");
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    // CraftBook handles sign clicks at HIGH and cancels the Bukkit
+    // PlayerInteractEvent once its own SignClickEvent is cancelled (which is
+    // what most mechanics do after toggling a door/gate/bridge). Listening
+    // with ignoreCancelled = true therefore skipped exactly the successful
+    // uses we want to audit. The bracket check below still keeps ordinary
+    // sign reads out of the log.
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onSignInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
