@@ -50,7 +50,13 @@ public final class Messages {
                     + "<gray>Origin: </gray>%origin%\n"
                     + "<gray>Location: </gray>%location%"
                     + "%server-line%%details%"),
-            Map.entry("tool.name", "<gold><bold>Spyglass Wand</bold></gold>")
+            Map.entry("tool.name", "<gold><bold>Spyglass Wand</bold></gold>"),
+            Map.entry("time.just-now", "just now"),
+            Map.entry("time.seconds", "%ss"),
+            Map.entry("time.minutes", "%sm"),
+            Map.entry("time.hours", "%sh"),
+            Map.entry("time.days", "%sd"),
+            Map.entry("time.weeks", "%sw")
     );
 
     private static volatile Messages instance = new Messages(DEFAULTS);

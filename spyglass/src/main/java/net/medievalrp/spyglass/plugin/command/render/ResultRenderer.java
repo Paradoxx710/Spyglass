@@ -718,17 +718,28 @@ public final class ResultRenderer {
     }
 
     private static String timeAgo(Instant occurred) {
+        Messages messages = Messages.getInstance();
         long seconds = Math.max(0L, Instant.now().getEpochSecond() - occurred.getEpochSecond());
-        if (seconds < 5) return "just now";
-        if (seconds < 60) return seconds + "s ago";
+        if (seconds < 5) {
+            return messages.raw("time.just-now");
+        }
+        if (seconds < 60) {
+            return messages.raw("time.seconds").replace("%s", String.valueOf(seconds));
+        }
         long minutes = seconds / 60;
-        if (minutes < 60) return minutes + "m ago";
+        if (minutes < 60) {
+            return messages.raw("time.minutes").replace("%s", String.valueOf(minutes));
+        }
         long hours = minutes / 60;
-        if (hours < 24) return hours + "h ago";
+        if (hours < 24) {
+            return messages.raw("time.hours").replace("%s", String.valueOf(hours));
+        }
         long days = hours / 24;
-        if (days < 7) return days + "d ago";
+        if (days < 7) {
+            return messages.raw("time.days").replace("%s", String.valueOf(days));
+        }
         long weeks = days / 7;
-        return weeks + "w ago";
+        return messages.raw("time.weeks").replace("%s", String.valueOf(weeks));
     }
 
     private static String fullTimestamp(Instant instant) {
