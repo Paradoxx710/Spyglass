@@ -92,4 +92,28 @@ class SpyglassConfigLoadMigrationTest {
                     .isEmpty();
         }
     }
+
+    @Test
+    void v3ConfigGainsTheAliasSectionAndKeepsSAliasOptOut(@TempDir Path dataFolder)
+            throws Exception {
+        Path file = dataFolder.resolve("config.conf");
+        Files.writeString(file, "config-version = 3\n"
+                + "database { backend = \"sqlite\" }\n"
+                + "commands { s-alias = false }\n");
+
+        SpyglassConfig config = SpyglassConfig.load(pluginIn(dataFolder));
+
+        // The old opt-out still removes /s even though the migrated template
+        // lists it in commands.aliases.root.
+        assertThat(config.commands().sAlias()).isFalse();
+        assertThat(config.commands().extraAliases("root"))
+                .contains("sg")
+                .doesNotContain("s");
+
+        ConfigurationNode written = HoconConfigurationLoader.builder().path(file).build().load();
+        assertThat(written.node("config-version").getInt())
+                .isEqualTo(SpyglassConfig.CONFIG_VERSION);
+        assertThat(written.node("commands", "aliases", "root").getList(String.class))
+                .contains("sg", "s");
+    }
 }

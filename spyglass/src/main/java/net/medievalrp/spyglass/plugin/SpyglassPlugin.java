@@ -800,7 +800,7 @@ public final class SpyglassPlugin extends JavaPlugin {
                 importConfig,
                 importDir,
                 migrateService,
-                config.commands().sAlias());
+                config.commands());
         commands.setReloadHandler(sender -> {
             try {
                 net.medievalrp.spyglass.plugin.config.LiveConfig.validateFile(getDataFolder().toPath().resolve("config.conf"));

@@ -113,7 +113,8 @@ These settings are loaded with `messages.conf` and apply after `/sg reload`.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `commands.s-alias` | `true` | Register `/s` as a shortcut |
+| `commands.aliases.<command>` | Shipped aliases | Extra names for each command. Delete a name to unregister it; `[]` keeps only the canonical command. Restart required |
+| `commands.s-alias` | `true` | Legacy switch for `/s`; `false` removes it from `commands.aliases.root`. Prefer editing the root list directly |
 | `worldedit.enabled` | `true` | Log WorldEdit and FAWE edits. This is the only switch for them; turning off `place`/`break` doesn't affect WorldEdit |
 | `server.name` | `"default"` | This server's name, for `srv:` when servers share a database |
 | `metrics.enabled` | `true` | Anonymous [bStats](https://bstats.org) usage stats |

@@ -107,6 +107,46 @@ class SpyglassConfigTest {
     }
 
     @Test
+    void absentAliasesUseTheShippedDefaults() throws SerializationException {
+        BasicConfigurationNode root = BasicConfigurationNode.root();
+
+        assertThat(SpyglassConfig.parseCommandAliases(root))
+                .isEqualTo(SpyglassConfig.DEFAULT_COMMAND_ALIASES);
+    }
+
+    @Test
+    void explicitEmptyAliasListLeavesOnlyTheCanonicalCommand() throws SerializationException {
+        BasicConfigurationNode root = BasicConfigurationNode.root();
+        root.node("commands", "aliases", "root").setList(String.class, List.of());
+
+        java.util.Map<String, List<String>> aliases = SpyglassConfig.parseCommandAliases(root);
+
+        assertThat(aliases.get("root")).isEmpty();
+        // An absent key still keeps its shipped extras.
+        assertThat(aliases.get("help")).containsExactly("h", "?");
+    }
+
+    @Test
+    void sAliasFalseStillRemovesSFromTheRootList() throws SerializationException {
+        BasicConfigurationNode root = BasicConfigurationNode.root();
+        root.node("commands", "s-alias").set(false);
+        root.node("commands", "aliases", "root").setList(String.class, List.of("sg", "s"));
+
+        assertThat(SpyglassConfig.parseCommandAliases(root).get("root"))
+                .containsExactly("sg");
+    }
+
+    @Test
+    void aliasNamesAreTrimmedLowercasedAndDeduplicated() throws SerializationException {
+        BasicConfigurationNode root = BasicConfigurationNode.root();
+        root.node("commands", "aliases", "search").setList(String.class,
+                List.of(" L ", "l", "", "lookup"));
+
+        assertThat(SpyglassConfig.parseCommandAliases(root).get("search"))
+                .containsExactly("l", "lookup");
+    }
+
+    @Test
     void absentRedactKeyFallsBackToDefaultAuthSet() throws SerializationException {
         BasicConfigurationNode root = BasicConfigurationNode.root();
 

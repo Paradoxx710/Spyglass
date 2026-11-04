@@ -39,11 +39,44 @@ public record SpyglassConfig(
             "unregister", "premium", "2fa", "totp", "auth");
 
     /**
+     * Extra names (not counting the command's own name) registered for each
+     * command group. These are the historical aliases, shipped in
+     * {@code commands.aliases} so an operator can delete any of them. An
+     * absent key keeps the default; an explicit empty list keeps only the
+     * canonical command name.
+     */
+    public static final Map<String, java.util.List<String>> DEFAULT_COMMAND_ALIASES =
+            defaultCommandAliases();
+
+    private static Map<String, java.util.List<String>> defaultCommandAliases() {
+        Map<String, java.util.List<String>> aliases = new LinkedHashMap<>();
+        aliases.put("root", java.util.List.of("sg", "s"));
+        aliases.put("help", java.util.List.of("h", "?"));
+        aliases.put("events", java.util.List.of("e"));
+        aliases.put("version", java.util.List.of("ver"));
+        aliases.put("stats", java.util.List.of("analytics"));
+        aliases.put("search", java.util.List.of("s", "sc", "lookup", "l"));
+        aliases.put("page", java.util.List.of("p", "pg"));
+        aliases.put("rollback", java.util.List.of("rb", "roll"));
+        aliases.put("restore", java.util.List.of("rs", "rst"));
+        aliases.put("undo", java.util.List.of("u"));
+        aliases.put("rbqueue", java.util.List.of("queue", "rbq"));
+        aliases.put("tool", java.util.List.of("t", "inspect"));
+        aliases.put("inventory", java.util.List.of("inv", "salvage"));
+        aliases.put("snapshot", java.util.List.of("snap"));
+        aliases.put("tele", java.util.List.of());
+        aliases.put("import", java.util.List.of());
+        aliases.put("migrate", java.util.List.of());
+        aliases.put("reload", java.util.List.of());
+        return java.util.Collections.unmodifiableMap(aliases);
+    }
+
+    /**
      * Current config schema version. Bumped whenever the on-disk layout changes
      * in a way {@link ConfigMigrator} has to reconcile (a moved or renamed key).
      * A config with an older {@code config-version} is migrated on load.
      */
-    public static final int CONFIG_VERSION = 3;
+    public static final int CONFIG_VERSION = 4;
 
     // v1 -> v2 (v1 = the unversioned format up through release 1.0.9; #311,
     // #307, and #312 all land in one release, so they share one hop): the
@@ -66,6 +99,9 @@ public record SpyglassConfig(
         // an operator's toggle/retention on the old names carries over.
         remap.put("events.transfer-out", "events.transfer-withdraw");
         remap.put("events.transfer-in", "events.transfer-deposit");
+        // v4 adds commands.aliases. No key moved, so the rebuild from the
+        // bundled template inserts the section while commands.s-alias (when
+        // present) keeps overriding the root list.
         MIGRATION_REMAP = java.util.Collections.unmodifiableMap(remap);
     }
 
@@ -242,7 +278,11 @@ public record SpyglassConfig(
                 // /s as a third root alias next to /spyglass and /sg. On by
                 // default (#279, reversing #250's opt-in); an operator whose
                 // server has another plugin claiming /s sets s-alias = false.
-                new Commands(root.node("commands", "s-alias").getBoolean(true)),
+                // The aliases lists carry every extra name; s-alias is kept
+                // as a back-compat switch that removes "s" from the root list.
+                new Commands(
+                        root.node("commands", "s-alias").getBoolean(true),
+                        parseCommandAliases(root)),
                 // WorldEdit/FAWE logging hook. On by default (#332); an
                 // absent key reads true so upgrades keep recording. When
                 // false, the subscriber and FAWE hook are never registered,
@@ -269,6 +309,44 @@ public record SpyglassConfig(
         return redactNode.getList(String.class, java.util.List.of()).stream()
                 .filter(java.util.Objects::nonNull)
                 .toList();
+    }
+
+    /**
+     * Read the {@code commands.aliases} extras lists. Each key is a command
+     * group whose value lists the extra names to register besides the
+     * canonical command name. An absent key keeps the shipped default; an
+     * explicit empty list unregisters every extra alias while leaving the
+     * canonical command usable. {@code commands.s-alias = false} still wins
+     * over the root list so an existing config that opted out of /s keeps
+     * working after the alias section appears.
+     *
+     * <p>Names are trimmed, lower-cased, and de-duplicated. Null elements
+     * (a HOCON oddity) are dropped rather than failing plugin enable.
+     */
+    static Map<String, java.util.List<String>> parseCommandAliases(ConfigurationNode root)
+            throws org.spongepowered.configurate.serialize.SerializationException {
+        ConfigurationNode aliasesNode = root.node("commands", "aliases");
+        Map<String, java.util.List<String>> aliases = new LinkedHashMap<>();
+        for (Map.Entry<String, java.util.List<String>> entry : DEFAULT_COMMAND_ALIASES.entrySet()) {
+            ConfigurationNode node = aliasesNode.node(entry.getKey());
+            java.util.List<String> extras = node.virtual()
+                    ? entry.getValue()
+                    : node.getList(String.class, java.util.List.of()).stream()
+                            .filter(java.util.Objects::nonNull)
+                            .map(String::trim)
+                            .filter(name -> !name.isEmpty())
+                            .map(name -> name.toLowerCase(java.util.Locale.ROOT))
+                            .distinct()
+                            .toList();
+            aliases.put(entry.getKey(), java.util.List.copyOf(extras));
+        }
+        if (!root.node("commands", "s-alias").getBoolean(true)) {
+            java.util.List<String> rootExtras = new java.util.ArrayList<>(
+                    aliases.getOrDefault("root", java.util.List.of()));
+            rootExtras.removeIf("s"::equalsIgnoreCase);
+            aliases.put("root", java.util.List.copyOf(rootExtras));
+        }
+        return java.util.Collections.unmodifiableMap(aliases);
     }
 
     /**
@@ -657,7 +735,24 @@ public record SpyglassConfig(
      * Configured under {@code server.name} in {@code config.conf}; defaults
      * to {@code "default"} for a single-server deployment.
      */
-    public record Commands(boolean sAlias) {
+    public record Commands(boolean sAlias, Map<String, java.util.List<String>> aliases) {
+        public Commands(boolean sAlias) {
+            this(sAlias, DEFAULT_COMMAND_ALIASES);
+        }
+
+        public Commands {
+            Map<String, java.util.List<String>> copy = new LinkedHashMap<>();
+            Map<String, java.util.List<String>> source =
+                    aliases != null ? aliases : DEFAULT_COMMAND_ALIASES;
+            source.forEach((key, values) -> copy.put(key,
+                    values == null ? java.util.List.of() : java.util.List.copyOf(values)));
+            aliases = java.util.Collections.unmodifiableMap(copy);
+        }
+
+        /** Extra names registered for {@code command}, never including the canonical name. */
+        public java.util.List<String> extraAliases(String command) {
+            return aliases.getOrDefault(command, java.util.List.of());
+        }
     }
 
     /**

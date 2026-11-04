@@ -22,6 +22,7 @@ import net.medievalrp.spyglass.plugin.command.service.StatsService;
 import net.medievalrp.spyglass.plugin.command.service.TeleportService;
 import net.medievalrp.spyglass.plugin.command.service.ToolService;
 import net.medievalrp.spyglass.plugin.command.service.UndoService;
+import net.medievalrp.spyglass.plugin.config.SpyglassConfig;
 import net.medievalrp.spyglass.plugin.imports.ImportConfig;
 import net.medievalrp.spyglass.plugin.imports.ImportPaths;
 import net.medievalrp.spyglass.plugin.imports.ImportService;
@@ -41,7 +42,8 @@ public final class SpyglassCommands {
     // namespace-distinct so the proxy never shadows the Paper command.
     // /s joins unless commands.s-alias is disabled in config (#279, opt-out;
     // was opt-in under #250) - an operator turns it off when another plugin
-    // on the server claims the single-letter root.
+    // on the server claims the single-letter root. Every name here comes from
+    // commands.aliases.root, so an operator can edit the whole list.
     private final List<String> rootAliases;
 
     static List<String> rootAliases(boolean sAlias) {
@@ -50,6 +52,7 @@ public final class SpyglassCommands {
 
     private final JavaPlugin plugin;
     private final SpyglassApi api;
+    private final SpyglassConfig.Commands commands;
     private final HelpService help;
     private final SearchService search;
     private final RollbackService rollback;
@@ -85,9 +88,12 @@ public final class SpyglassCommands {
                         ImportConfig importConfig,
                         Path importDir,
                         net.medievalrp.spyglass.plugin.migrate.MigrateService migrate,
-                        boolean sAlias) {
+                        SpyglassConfig.Commands commands) {
         this.plugin = plugin;
         this.api = api;
+        this.commands = commands != null
+                ? commands
+                : new SpyglassConfig.Commands(true, SpyglassConfig.DEFAULT_COMMAND_ALIASES);
         this.help = help;
         this.search = search;
         this.rollback = rollback;
@@ -104,30 +110,30 @@ public final class SpyglassCommands {
         this.importConfig = importConfig;
         this.importDir = importDir;
         this.migrate = migrate;
-        this.rootAliases = rootAliases(sAlias);
+        this.rootAliases = names("root", "spyglass");
+    }
+
+    /**
+     * Canonical name first, then the configured extras from
+     * {@code commands.aliases}. LinkedHashSet keeps registration order stable
+     * and drops an alias that repeats the canonical name.
+     */
+    private List<String> names(String command, String canonical) {
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        names.add(canonical);
+        names.addAll(commands.extraAliases(command));
+        return List.copyOf(names);
     }
 
     // v1-compat subcommand aliases. Operators have years of muscle memory
     // around {@code /spyglass l} and {@code /spyglass rb}; v2 originally exposed
-    // only the long names. Each list is shipped to {@link #subcommand}
-    // which registers the same handler under every alias.
-    private static final List<String> SEARCH_ALIASES = List.of("search", "s", "sc", "lookup", "l");
-    private static final List<String> PAGE_ALIASES = List.of("page", "p", "pg");
-    private static final List<String> ROLLBACK_ALIASES = List.of("rollback", "rb", "roll");
-    private static final List<String> RESTORE_ALIASES = List.of("restore", "rs", "rst");
-    private static final List<String> UNDO_ALIASES = List.of("undo", "u");
-    private static final List<String> RBQUEUE_ALIASES = List.of("rbqueue", "queue", "rbq");
-    private static final List<String> TOOL_ALIASES = List.of("tool", "t", "inspect");
-    private static final List<String> EVENTS_ALIASES = List.of("events", "e");
-    private static final List<String> HELP_ALIASES = List.of("help", "h", "?");
-    private static final List<String> INVENTORY_ALIASES = List.of("inventory", "inv", "salvage");
-    private static final List<String> SNAPSHOT_ALIASES = List.of("snapshot", "snap");
-    private static final List<String> VERSION_ALIASES = List.of("version", "ver");
+    // only the long names. Every extra name now lives in commands.aliases in
+    // config.conf, so deleting one there unregisters it while the canonical
+    // name (help, search, rollback, ...) keeps working.
 
     /** Support Discord shown by /sg version - the invite the README publishes. */
     private static final String SUPPORT_INVITE = "discord.gg/7kxDxMYKyW";
     private static final String SUPPORT_URL = "https://" + SUPPORT_INVITE;
-    private static final List<String> STATS_ALIASES = List.of("stats", "analytics");
 
     private java.util.function.Consumer<CommandSender> reloadHandler = sender -> {};
     private java.util.function.Supplier<String> updateStatus = () -> "";
@@ -139,14 +145,16 @@ public final class SpyglassCommands {
         LegacyPaperCommandManager<CommandSender> manager = LegacyPaperCommandManager.createNative(
                 plugin, ExecutionCoordinator.simpleCoordinator());
         for (String root : rootAliases) {
-            manager.command(manager.commandBuilder(root).literal("reload")
-                    .permission("spyglass.reload")
-                    .handler(ctx -> reloadHandler.accept(ctx.sender())));
+            for (String name : names("reload", "reload")) {
+                manager.command(manager.commandBuilder(root).literal(name)
+                        .permission("spyglass.reload")
+                        .handler(ctx -> reloadHandler.accept(ctx.sender())));
+            }
             manager.command(manager.commandBuilder(root)
                     .permission("spyglass.use")
                     .handler(ctx -> help.send(ctx.sender())));
 
-            for (String name : HELP_ALIASES) {
+            for (String name : names("help", "help")) {
                 // Optional page (#249): the full command list overflows chat,
                 // so /sg help paginates and /sg help <n> jumps to a page.
                 manager.command(manager.commandBuilder(root).literal(name)
@@ -156,53 +164,53 @@ public final class SpyglassCommands {
                                 ctx.<Integer>optional("page").orElse(1))));
             }
 
-            for (String name : EVENTS_ALIASES) {
+            for (String name : names("events", "events")) {
                 manager.command(manager.commandBuilder(root).literal(name)
                         .permission("spyglass.use")
                         .handler(ctx -> sendEnabledEvents(ctx.sender())));
             }
 
-            for (String name : VERSION_ALIASES) {
+            for (String name : names("version", "version")) {
                 manager.command(manager.commandBuilder(root).literal(name)
                         .permission("spyglass.use")
                         .handler(ctx -> sendVersion(ctx.sender())));
             }
 
             // #168: /spyglass stats - on-demand ingest analytics snapshot.
-            for (String name : STATS_ALIASES) {
+            for (String name : names("stats", "stats")) {
                 manager.command(manager.commandBuilder(root).literal(name)
                         .permission("spyglass.use")
                         .handler(ctx -> stats.execute(ctx.sender())));
             }
 
-            for (String name : SEARCH_ALIASES) {
+            for (String name : names("search", "search")) {
                 manager.command(manager.commandBuilder(root).literal(name)
                         .required("params", suggestions.paramsParser(), suggestions.paramsProvider())
                         .permission("spyglass.search")
                         .handler(ctx -> search.execute(ctx.sender(), ctx.get("params"))));
             }
 
-            for (String name : ROLLBACK_ALIASES) {
+            for (String name : names("rollback", "rollback")) {
                 manager.command(manager.commandBuilder(root).literal(name)
                         .required("params", suggestions.paramsParser(), suggestions.paramsProvider())
                         .permission("spyglass.rollback")
                         .handler(ctx -> rollback.execute(ctx.sender(), ctx.get("params"), RollbackMode.ROLLBACK)));
             }
 
-            for (String name : RESTORE_ALIASES) {
+            for (String name : names("restore", "restore")) {
                 manager.command(manager.commandBuilder(root).literal(name)
                         .required("params", suggestions.paramsParser(), suggestions.paramsProvider())
                         .permission("spyglass.rollback")
                         .handler(ctx -> rollback.execute(ctx.sender(), ctx.get("params"), RollbackMode.RESTORE)));
             }
 
-            for (String name : UNDO_ALIASES) {
+            for (String name : names("undo", "undo")) {
                 manager.command(manager.commandBuilder(root).literal(name)
                         .permission("spyglass.rollback")
                         .handler(ctx -> undo.execute(ctx.sender())));
             }
 
-            for (String name : RBQUEUE_ALIASES) {
+            for (String name : names("rbqueue", "rbqueue")) {
                 // /sg rbqueue (no args = list)
                 manager.command(manager.commandBuilder(root).literal(name)
                         .permission("spyglass.rollback")
@@ -214,20 +222,20 @@ public final class SpyglassCommands {
                         .handler(ctx -> rbqueue.execute(ctx.sender(), ctx.get("args"))));
             }
 
-            for (String name : PAGE_ALIASES) {
+            for (String name : names("page", "page")) {
                 manager.command(manager.commandBuilder(root).literal(name)
                         .required("number", IntegerParser.integerParser(1))
                         .permission("spyglass.use")
                         .handler(ctx -> pageCache.show(ctx.sender(), ctx.get("number"))));
             }
 
-            for (String name : TOOL_ALIASES) {
+            for (String name : names("tool", "tool")) {
                 manager.command(manager.commandBuilder(root).literal(name)
                         .permission("spyglass.tool")
                         .handler(ctx -> tool.toggle(ctx.sender())));
             }
 
-            for (String name : INVENTORY_ALIASES) {
+            for (String name : names("inventory", "inventory")) {
                 // Gated on its own node, not spyglass.rollback: pulling items out
                 // of a rollback-destroyed container is a distinct capability from
                 // running a rollback, so an operator can grant recovery without
@@ -239,7 +247,7 @@ public final class SpyglassCommands {
 
             }
 
-            for (String name : SNAPSHOT_ALIASES) {
+            for (String name : names("snapshot", "snapshot")) {
                 // /sg snapshot <params>: view a player inventory or container as
                 // of a past instant (#341). Greedy params (t:/p:/trg:/w:), the
                 // house style; whole-span suggestions keep multi-key completion
@@ -255,42 +263,48 @@ public final class SpyglassCommands {
 
             // /spyglass tele <world> <x> <y> <z> — wired to search-result click
             // events so staff can jump to the scene of an incident.
-            manager.command(manager.commandBuilder(root).literal("tele")
-                    .required("world", StringParser.stringParser())
-                    .required("x", StringParser.stringParser())
-                    .required("y", StringParser.stringParser())
-                    .required("z", StringParser.stringParser())
-                    .permission("spyglass.tele")
-                    .handler(ctx -> teleport.execute(ctx.sender(),
-                            ctx.get("world"), ctx.get("x"), ctx.get("y"), ctx.get("z"))));
+            for (String name : names("tele", "tele")) {
+                manager.command(manager.commandBuilder(root).literal(name)
+                        .required("world", StringParser.stringParser())
+                        .required("x", StringParser.stringParser())
+                        .required("y", StringParser.stringParser())
+                        .required("z", StringParser.stringParser())
+                        .permission("spyglass.tele")
+                        .handler(ctx -> teleport.execute(ctx.sender(),
+                                ctx.get("world"), ctx.get("x"), ctx.get("y"), ctx.get("z"))));
+            }
 
             // /spyglass import <file> — SQLite import from plugins/Spyglass/import/
-            manager.command(manager.commandBuilder(root).literal("import")
-                    .required("file", StringParser.stringParser(), suggestions.importFileProvider())
-                    .flag(manager.flagBuilder("confirm").build())
-                    .permission("spyglass.import")
-                    .handler(ctx -> handleImportFile(ctx.sender(),
-                            ctx.get("file"), ctx.flags().isPresent("confirm"))));
-
             // /spyglass import mysql <source> — live MySQL import from import.conf
-            manager.command(manager.commandBuilder(root).literal("import").literal("mysql")
-                    .required("source", StringParser.stringParser(), suggestions.importSourceProvider())
-                    .flag(manager.flagBuilder("confirm").build())
-                    .permission("spyglass.import")
-                    .handler(ctx -> handleImportMysql(ctx.sender(),
-                            ctx.get("source"), ctx.flags().isPresent("confirm"))));
+            for (String name : names("import", "import")) {
+                manager.command(manager.commandBuilder(root).literal(name)
+                        .required("file", StringParser.stringParser(), suggestions.importFileProvider())
+                        .flag(manager.flagBuilder("confirm").build())
+                        .permission("spyglass.import")
+                        .handler(ctx -> handleImportFile(ctx.sender(),
+                                ctx.get("file"), ctx.flags().isPresent("confirm"))));
+
+                manager.command(manager.commandBuilder(root).literal(name).literal("mysql")
+                        .required("source", StringParser.stringParser(), suggestions.importSourceProvider())
+                        .flag(manager.flagBuilder("confirm").build())
+                        .permission("spyglass.import")
+                        .handler(ctx -> handleImportMysql(ctx.sender(),
+                                ctx.get("source"), ctx.flags().isPresent("confirm"))));
+            }
 
             // /spyglass migrate <backend> — copy the active backend's records
             // into another configured backend (internal storage migration).
             // Validation (unknown/active/unconfigured target) happens inside
             // MigrateService, which messages the sender for every outcome.
-            manager.command(manager.commandBuilder(root).literal("migrate")
-                    .required("backend", StringParser.stringParser(),
-                            suggestions.migrateBackendProvider())
-                    .flag(manager.flagBuilder("confirm").build())
-                    .permission("spyglass.migrate")
-                    .handler(ctx -> migrate.migrate(ctx.sender(),
-                            ctx.get("backend"), ctx.flags().isPresent("confirm"))));
+            for (String name : names("migrate", "migrate")) {
+                manager.command(manager.commandBuilder(root).literal(name)
+                        .required("backend", StringParser.stringParser(),
+                                suggestions.migrateBackendProvider())
+                        .flag(manager.flagBuilder("confirm").build())
+                        .permission("spyglass.migrate")
+                        .handler(ctx -> migrate.migrate(ctx.sender(),
+                                ctx.get("backend"), ctx.flags().isPresent("confirm"))));
+            }
         }
         return manager;
     }

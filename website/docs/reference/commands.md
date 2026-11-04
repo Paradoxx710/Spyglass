@@ -1,6 +1,8 @@
 # Commands
 
-The root command is `/spyglass`. `/sg` always works too, and so does `/s` unless you've turned it off (`commands.s-alias`). Every permission defaults to server operators.
+The root command is `/spyglass`. `/sg` and `/s` ship as shortcuts; remove any name from `commands.aliases.root` in `config.conf` to unregister it (the canonical `/spyglass` always works). Every permission defaults to server operators.
+
+Every alias in the table below is likewise just an extra name. Delete it from the matching `commands.aliases.<command>` list to unregister it, or set the list to `[]` to keep only the canonical name. Alias changes need a restart.
 
 | Command | Aliases | Permission | What it does |
 | --- | --- | --- | --- |
