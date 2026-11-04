@@ -92,7 +92,7 @@ class ResultRendererTest {
     }
 
     @Test
-    void signEditLineShowsQuotedTextFromTheEditedFaceAndFullYear() {
+    void signEditLineShowsEditedTextAsContinuousPhraseAndFullYear() {
         Instant occurred = Instant.now().minusSeconds(17 * 60L);
         BlockPlaceRecord record = signEditRecord(occurred,
                 List.of("", "", "", ""),
@@ -111,7 +111,7 @@ class ResultRendererTest {
                 .format(java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy"));
 
         assertThat(rendered).isEqualTo("= (" + date
-                + ") Alice edited OAK_SIGN with \"hello i'm a message in first line\", \"second line\" 17m ago");
+                + ") Alice edited OAK_SIGN with hello i'm a message in first line second line 17m ago");
     }
 
     @Test
@@ -132,7 +132,7 @@ class ResultRendererTest {
         String rendered = PlainTextComponentSerializer.plainText().serialize(
                 renderer.renderSingle(record, EnumSet.noneOf(Flag.class), true));
 
-        assertThat(rendered).isEqualTo("\"new front\"");
+        assertThat(rendered).isEqualTo("new front");
     }
 
     private static BlockPlaceRecord signEditRecord(Instant occurred,

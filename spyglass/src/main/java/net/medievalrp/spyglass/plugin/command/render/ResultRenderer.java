@@ -428,11 +428,9 @@ public final class ResultRenderer {
         } else {
             return "\"\"";
         }
-        String text = editedLines.stream()
+        return editedLines.stream()
                 .filter(line -> line != null && !line.isBlank())
-                .map(line -> "\"" + line.replace("\"", "\\\"") + "\"")
-                .collect(java.util.stream.Collectors.joining(", "));
-        return text.isEmpty() ? "\"\"" : text;
+                .collect(java.util.stream.Collectors.joining(" "));
     }
 
     private static Component joinedLines(List<Component> lines) {
