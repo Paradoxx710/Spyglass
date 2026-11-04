@@ -29,7 +29,7 @@ class MessagesTest {
         assertThat(plain(error)).isEqualTo("«Spyglass» (Error) database unreachable");
 
         Component info = messages.info("hello");
-        assertThat(plain(info)).isEqualTo("«Spyglass» hello");
+        assertThat(plain(info)).isEqualTo("«Spyglass»hello");
     }
 
     @Test
