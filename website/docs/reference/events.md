@@ -8,11 +8,12 @@ Every record has an event type. Use these names with `a:`, like `/sg search a:br
 | --- | --- |
 | `break` | A block is broken: by a player, explosion, fire, an entity, or because the block it was attached to broke |
 | `place` | A block is placed |
+| `sign-edit` | A player edits a sign's text, including the first text written when placing one. Rollback restores the previous text |
 | `decay` / `form` / `grow` | Leaves decay, blocks form (ice, concrete, cobblestone...), crops and trees grow |
 | `ignite` | A fire starts. Later burned blocks link back to it |
 | `bucket-empty` / `bucket-fill` | Water, lava and other fluids are poured or scooped with a bucket |
 | `use` | A block is right-clicked (doors, buttons, levers...) |
-| `useSign` | A sign is used |
+| `useSign` | A [CraftBook](https://craftbook.enginehub.org/) machine sign is used (for example `[Gate]`, `[Door Up]`, `[Lift Up]`). Requires CraftBook; ordinary signs are not logged |
 | `brush` | Suspicious sand or gravel is brushed |
 | `vault` | A vault is unlocked |
 | `crafter` | A crafter block crafts an item |

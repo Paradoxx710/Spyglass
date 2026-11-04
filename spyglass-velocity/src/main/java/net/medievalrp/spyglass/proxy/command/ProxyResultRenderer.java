@@ -62,6 +62,7 @@ public final class ProxyResultRenderer {
     private static final Map<String, String> PAST_TENSE = Map.ofEntries(
             Map.entry("break", "broke"),
             Map.entry("place", "placed"),
+            Map.entry("sign-edit", "edited"),
             Map.entry("deposit", "deposited"),
             Map.entry("withdraw", "withdrew"),
             Map.entry("open", "opened"),

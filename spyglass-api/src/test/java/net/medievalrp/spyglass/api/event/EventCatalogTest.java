@@ -50,6 +50,27 @@ class EventCatalogTest {
         assertThat(EventCatalog.isRegistered("not-an-event")).isFalse();
     }
 
+    @Test
+    void mixedCaseBuiltinResolvesCaseInsensitively() {
+        // useSign keeps its historical spelling in config and stored records,
+        // but a query typed in any case must still decode as BlockUseRecord.
+        assertThat(EventCatalog.recordClassOf("useSign")).isEqualTo(BlockUseRecord.class);
+        assertThat(EventCatalog.recordClassOf("usesign")).isEqualTo(BlockUseRecord.class);
+        assertThat(EventCatalog.recordClassOf("USESIGN")).isEqualTo(BlockUseRecord.class);
+        assertThat(EventCatalog.isRegistered("usesign")).isTrue();
+        assertThat(EventCatalog.eventNames()).contains("useSign");
+    }
+
+    @Test
+    void signEditReusesTheBlockPlaceShapeAndIsRollbackable() {
+        // sign-edit carries before/after BlockSnapshots, so it reuses the
+        // place record for storage and rollback without a schema change.
+        assertThat(EventCatalog.recordClassOf("sign-edit")).isEqualTo(BlockPlaceRecord.class);
+        assertThat(EventCatalog.isRegistered("SIGN-EDIT")).isTrue();
+        assertThat(EventCatalog.isRollbackable("sign-edit")).isTrue();
+        assertThat(EventCatalog.eventNames()).contains("sign-edit");
+    }
+
     @org.junit.jupiter.api.Test
     void slotAccurateTransfersMapToContainerShapesButNeverRollBack() {
         org.assertj.core.api.Assertions.assertThat(EventCatalog.recordClassOf("transfer-withdraw"))

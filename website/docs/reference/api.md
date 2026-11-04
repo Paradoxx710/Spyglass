@@ -641,7 +641,7 @@ in `Eq`/`In` predicates, in `enabledEvents()` checks, or pass them to
 `record()` are also valid - there's no registration step.
 
 ```
-Block events: break, place, decay, form, grow, ignite, brush, vault
+Block events: break, place, sign-edit, decay, form, grow, ignite, brush, vault
 Block usage: use, useSign, sculk
 Containers: open, close, deposit, withdraw,
                  shulker-open, shulker-close, shulker-deposit, shulker-withdraw,

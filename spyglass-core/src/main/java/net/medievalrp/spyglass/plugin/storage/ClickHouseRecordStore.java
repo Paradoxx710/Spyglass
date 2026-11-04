@@ -159,7 +159,7 @@ public final class ClickHouseRecordStore implements RecordStore {
      */
     private static final String ROLLBACKABLE_EVENT_FILTER =
             "event IN ("
-                    + "'break','place','decay','form','grow','ignite','brush','vault','straw-bed-consume',"
+                    + "'break','place','sign-edit','decay','form','grow','ignite','brush','vault','straw-bed-consume',"
                     + "'deposit','withdraw',"
                     + "'entity-deposit','entity-withdraw',"
                     + "'bookshelf-insert','bookshelf-remove',"

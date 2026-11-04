@@ -51,14 +51,22 @@ public final class EventParam implements QueryParamHandler {
         List<String> includes = new java.util.ArrayList<>();
         List<String> excludes = new java.util.ArrayList<>();
         for (String raw : value.split(",")) {
-            String token = raw.trim().toLowerCase(java.util.Locale.ROOT);
+            String token = raw.trim();
             if (token.isEmpty() || token.equals("!")) {
                 continue;
             }
             boolean negated = token.startsWith("!");
-            String name = negated ? token.substring(1) : token;
-            if (!enabledEvents.contains(name)) {
-                throw new ParamParseException("Unknown or disabled event: " + name);
+            String requested = negated ? token.substring(1).trim() : token;
+            if (requested.isEmpty()) {
+                continue;
+            }
+            // Enabled names are config keys and keep their canonical spelling
+            // ("useSign"), so resolve the operator's input against them rather
+            // than lower-casing the query and hoping every key is lowercase.
+            String name = resolveEnabled(requested);
+            if (name == null) {
+                throw new ParamParseException("Unknown or disabled event: "
+                        + requested.toLowerCase(java.util.Locale.ROOT));
             }
             CommandSender sender = context != null ? context.sender() : null;
             String requiredPermission = permissionResolver.apply(name);
@@ -93,10 +101,31 @@ public final class EventParam implements QueryParamHandler {
         if (!bucket.contains(name)) {
             bucket.add(name);
         }
-        String rolled = ROLLED_COUNTERPART.get(name);
-        if (rolled != null && enabledEvents.contains(rolled) && !bucket.contains(rolled)) {
-            bucket.add(rolled);
+        String rolled = ROLLED_COUNTERPART.get(name.toLowerCase(java.util.Locale.ROOT));
+        if (rolled != null) {
+            String resolved = resolveEnabled(rolled);
+            if (resolved != null && !bucket.contains(resolved)) {
+                bucket.add(resolved);
+            }
         }
+    }
+
+    /**
+     * Find the enabled event whose name matches {@code requested}, preferring
+     * an exact match and otherwise comparing case-insensitively. Returns the
+     * canonical configured spelling so permissions and stored predicates use
+     * the same key as config.conf.
+     */
+    private String resolveEnabled(String requested) {
+        if (enabledEvents.contains(requested)) {
+            return requested;
+        }
+        for (String enabled : enabledEvents) {
+            if (enabled.equalsIgnoreCase(requested)) {
+                return enabled;
+            }
+        }
+        return null;
     }
 
     private static QueryPredicate membership(List<String> names) {
@@ -110,7 +139,7 @@ public final class EventParam implements QueryParamHandler {
     public List<String> suggestions(CommandSender sender, String input) {
         String lowerInput = input.toLowerCase(java.util.Locale.ROOT);
         return enabledEvents.stream()
-                .filter(name -> name.startsWith(lowerInput))
+                .filter(name -> name.toLowerCase(java.util.Locale.ROOT).startsWith(lowerInput))
                 .filter(name -> {
                     if (sender == null) {
                         return true;

@@ -45,6 +45,24 @@ class EventParamTest {
     }
 
     @Test
+    void mixedCaseBuiltinKeepsItsCanonicalConfigName() throws Exception {
+        // useSign is the historical mixed-case key in config.conf and stored
+        // records; a query must resolve to that key rather than lowercase it
+        // into an event the store cannot decode.
+        QueryPredicate predicate = new EventParam(Set.of("useSign", "break"))
+                .parse("a", "USEsiGN", ctx());
+        assertThat(((QueryPredicate.Eq) predicate).value()).isEqualTo("useSign");
+    }
+
+    @Test
+    void suggestionsMatchMixedCaseNamesCaseInsensitively() {
+        EventParam param = new EventParam(Set.of("useSign"));
+
+        assertThat(param.suggestions(null, "usesi")).containsExactly("useSign");
+        assertThat(param.suggestions(null, "USESI")).containsExactly("useSign");
+    }
+
+    @Test
     void multipleEnabledEventsProduceIn() throws Exception {
         QueryPredicate predicate = new EventParam(ENABLED).parse("a", "break,place,say", ctx());
 

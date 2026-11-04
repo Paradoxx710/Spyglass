@@ -33,10 +33,22 @@ public final class EventCatalog {
 
     private static final Map<String, Class<? extends EventRecord>> TYPES;
 
+    /**
+     * Lower-case lookup for the built-in names. {@link #TYPES} keeps the
+     * canonical spelling ({@code useSign}) for config keys, stored event
+     * names, and docs; queries are case-insensitive and must not depend on
+     * the caller preserving that spelling.
+     */
+    private static final Map<String, Class<? extends EventRecord>> TYPES_BY_LOWER;
+
     static {
         Map<String, Class<? extends EventRecord>> m = new LinkedHashMap<>();
         m.put("break", BlockBreakRecord.class);
         m.put("place", BlockPlaceRecord.class);
+        // A player edited a sign's text. Reuses the place shape because it
+        // carries the before/after BlockSnapshot pair, which is exactly what
+        // sign-text rollback needs. Distinct from useSign (CraftBook machines).
+        m.put("sign-edit", BlockPlaceRecord.class);
         m.put("say", ChatRecord.class);
         m.put("command", CommandRecord.class);
         m.put("join", JoinRecord.class);
@@ -143,6 +155,17 @@ public final class EventCatalog {
         // at search time (#22).
         m.put("rollback-op", RollbackOpRecord.class);
         TYPES = Map.copyOf(m);
+
+        Map<String, Class<? extends EventRecord>> lower = new LinkedHashMap<>();
+        for (Map.Entry<String, Class<? extends EventRecord>> entry : m.entrySet()) {
+            String key = entry.getKey().toLowerCase(java.util.Locale.ROOT);
+            Class<? extends EventRecord> previous = lower.putIfAbsent(key, entry.getValue());
+            if (previous != null && previous != entry.getValue()) {
+                throw new IllegalStateException("EventCatalog names collide case-insensitively: "
+                        + key);
+            }
+        }
+        TYPES_BY_LOWER = Map.copyOf(lower);
     }
 
     /**
@@ -195,7 +218,7 @@ public final class EventCatalog {
             return null;
         }
         String key = eventName.toLowerCase(java.util.Locale.ROOT);
-        Class<? extends EventRecord> builtin = TYPES.get(key);
+        Class<? extends EventRecord> builtin = TYPES_BY_LOWER.get(key);
         if (builtin != null) {
             return builtin;
         }
@@ -212,7 +235,7 @@ public final class EventCatalog {
             return;
         }
         String key = eventName.toLowerCase(java.util.Locale.ROOT);
-        if (TYPES.containsKey(key)) {
+        if (TYPES_BY_LOWER.containsKey(key)) {
             return;
         }
         CUSTOM.put(key, pastTense == null || pastTense.isBlank() ? key : pastTense);

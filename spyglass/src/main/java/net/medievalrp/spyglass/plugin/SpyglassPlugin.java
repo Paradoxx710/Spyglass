@@ -97,6 +97,7 @@ import net.medievalrp.spyglass.plugin.listener.modern.DecoratedPotListener;
 import net.medievalrp.spyglass.plugin.listener.modern.DelayedInteractionTracker;
 import net.medievalrp.spyglass.plugin.listener.modern.SculkListener;
 import net.medievalrp.spyglass.plugin.listener.modern.ShulkerTransactionListener;
+import net.medievalrp.spyglass.plugin.listener.modern.SignEditListener;
 import net.medievalrp.spyglass.plugin.listener.modern.VaultListener;
 import net.medievalrp.spyglass.plugin.listener.player.BlockUseListener;
 import net.medievalrp.spyglass.plugin.listener.player.JoinListener;
@@ -419,6 +420,7 @@ public final class SpyglassPlugin extends JavaPlugin {
                 new BlockBurnListener(recorder, support, this),
                 new BlockPlaceListener(recorder, support, deferredSerializer),
                 new BlockMultiPlaceListener(recorder, support),
+                new SignEditListener(recorder, support, deferredSerializer),
                 // Bucket-placed / -removed fluid (#228). Reuses the block
                 // place/break records; per-event gated on enabledEvents like the
                 // hopper listener since one listener carries both toggles.

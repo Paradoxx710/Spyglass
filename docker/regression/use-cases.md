@@ -34,7 +34,7 @@ Measurement discipline (from the perf campaign): same-run comparisons only; judg
 | # | Scenario | Verify | Dim | Auto |
 |---|---|---|---|---|
 | B1 | Sign placed, text written both sides, dyed + glowing, then broken | Rollback restores text, dye, glow on both sides | C | man |
-| B2 | Existing sign's text edited (1.20+ sign editing) | Search shows the edit (`useSign`); rollback restores the prior text | C,K | man |
+| B2 | Existing sign's text edited (1.20+ sign editing) | Search shows the edit (`sign-edit`); rollback restores the prior text | C,K | man |
 | B3 | Chest with 27 named+enchanted items broken | Rollback restores chest and full contents — slots, names, lore, enchants | C | bot |
 | B4 | Double chest broken (both halves, contents split) | Both halves restored, contents exact, nothing duplicated | C | bot |
 | B5 | Shulker box with items broken and picked up | Events recorded; rollback restores placed shulker with contents | C | man |
