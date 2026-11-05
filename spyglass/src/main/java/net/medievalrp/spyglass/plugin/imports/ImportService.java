@@ -85,7 +85,7 @@ public final class ImportService {
 
     public ImportOutcome importSqlite(CommandSender sender, Path dbFile, boolean confirm) {
         if (running.get()) {
-            tellError(sender, "An import is already running; try again once it finishes.");
+            tellCatalogError(sender, "catalog.import.running");
             return ImportOutcome.ALREADY_RUNNING;
         }
         support.onAsyncThread(() -> runImportSqlite(sender, dbFile, confirm));
@@ -95,7 +95,7 @@ public final class ImportService {
     public ImportOutcome importMysql(CommandSender sender, String sourceName,
                             ImportConfig.MysqlSourceSpec spec, boolean confirm) {
         if (running.get()) {
-            tellError(sender, "An import is already running; try again once it finishes.");
+            tellCatalogError(sender, "catalog.import.running");
             return ImportOutcome.ALREADY_RUNNING;
         }
         support.onAsyncThread(() -> runImportMysql(sender, sourceName, spec, confirm));
@@ -106,7 +106,7 @@ public final class ImportService {
 
     ImportOutcome runImportSqlite(CommandSender sender, Path dbFile, boolean confirm) {
         if (!running.compareAndSet(false, true)) {
-            tellError(sender, "An import is already running; try again once it finishes.");
+            tellCatalogError(sender, "catalog.import.running");
             return ImportOutcome.ALREADY_RUNNING;
         }
         String displayName = dbFile.getFileName().toString();
@@ -120,7 +120,7 @@ public final class ImportService {
                     () -> SqliteSource.open(dbFile));
         } catch (IOException | RuntimeException ex) {
             logger.log(Level.SEVERE, "Spyglass import failed for " + displayName, ex);
-            tellError(sender, "Import failed: " + ex.getMessage());
+            tellCatalogError(sender, "catalog.import.failed", "%error%", ex.getMessage());
             return ImportOutcome.FAILED;
         } finally {
             running.set(false);
@@ -130,7 +130,7 @@ public final class ImportService {
     ImportOutcome runImportMysql(CommandSender sender, String sourceName,
                                  ImportConfig.MysqlSourceSpec spec, boolean confirm) {
         if (!running.compareAndSet(false, true)) {
-            tellError(sender, "An import is already running; try again once it finishes.");
+            tellCatalogError(sender, "catalog.import.running");
             return ImportOutcome.ALREADY_RUNNING;
         }
         try {
@@ -145,7 +145,7 @@ public final class ImportService {
                             spec.host(), spec.port(), spec.database(), spec.user(), spec.password())));
         } catch (IOException | RuntimeException ex) {
             logger.log(Level.SEVERE, "Spyglass import failed for " + sourceName, ex);
-            tellError(sender, "Import failed: " + ex.getMessage());
+            tellCatalogError(sender, "catalog.import.failed", "%error%", ex.getMessage());
             return ImportOutcome.FAILED;
         } finally {
             running.set(false);
@@ -188,8 +188,11 @@ public final class ImportService {
             history.record(new ImportRecord(identity, displayName, System.currentTimeMillis(),
                     senderName, summary.totalRead(), summary.totalWritten(), summary.totalSkipped()));
 
-            tellSuccess(sender, "Import complete for " + displayName + ": read=" + summary.totalRead()
-                    + " written=" + summary.totalWritten() + " skipped=" + summary.totalSkipped());
+            tellCatalogSuccess(sender, "catalog.import.complete",
+                    "%name%", displayName,
+                    "%read%", summary.totalRead(),
+                    "%written%", summary.totalWritten(),
+                    "%skipped%", summary.totalSkipped());
             return ImportOutcome.DONE;
         }
     }
@@ -208,15 +211,17 @@ public final class ImportService {
             return null;
         }
         if (backend == Backend.MONGO) {
-            tellError(sender, "This source was already imported and re-importing into MongoDB "
-                    + "is not supported; switch backends or restore from a MongoDB backup.");
+            tellCatalogError(sender, "catalog.import.reimport-mongo");
             return ImportOutcome.MONGO_REIMPORT_BLOCKED;
         }
         if (!confirm) {
             ImportRecord p = prior.get();
-            tellError(sender, "This source was already imported on " + Instant.ofEpochMilli(p.importedAtEpochMs())
-                    + " by " + p.importedBy() + " (read=" + p.read() + ", written=" + p.written()
-                    + ", skipped=" + p.skipped() + "). Re-run with --confirm to import again.");
+            tellCatalogError(sender, "catalog.import.confirm-reimport",
+                    "%time%", Instant.ofEpochMilli(p.importedAtEpochMs()),
+                    "%operator%", p.importedBy(),
+                    "%read%", p.read(),
+                    "%written%", p.written(),
+                    "%skipped%", p.skipped());
             return ImportOutcome.NEEDS_CONFIRM;
         }
         return null;
@@ -307,5 +312,17 @@ public final class ImportService {
     private void tellSuccess(CommandSender sender, String message) {
         support.onMainThread(() -> sender.sendMessage(
                 net.medievalrp.spyglass.plugin.command.render.Feedback.success(message)));
+    }
+
+    private void tellCatalogError(CommandSender sender, String key, Object... placeholders) {
+        support.onMainThread(() -> sender.sendMessage(
+                net.medievalrp.spyglass.plugin.command.render.Feedback.catalogError(
+                        sender, key, placeholders)));
+    }
+
+    private void tellCatalogSuccess(CommandSender sender, String key, Object... placeholders) {
+        support.onMainThread(() -> sender.sendMessage(
+                net.medievalrp.spyglass.plugin.command.render.Feedback.catalogSuccess(
+                        sender, key, placeholders)));
     }
 }

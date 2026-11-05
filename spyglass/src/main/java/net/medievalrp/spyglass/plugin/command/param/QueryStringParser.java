@@ -19,6 +19,7 @@ import net.medievalrp.spyglass.api.query.QueryRequest;
 import net.medievalrp.spyglass.api.query.Sort;
 import net.medievalrp.spyglass.api.util.BlockLocation;
 import net.medievalrp.spyglass.api.util.Duration;
+import net.medievalrp.spyglass.plugin.command.render.Messages;
 import net.medievalrp.spyglass.plugin.config.SpyglassConfig;
 import net.medievalrp.spyglass.plugin.util.BlockLocations;
 import net.medievalrp.spyglass.plugin.worldedit.WorldEditSelection;
@@ -192,10 +193,8 @@ public final class QueryStringParser {
                     // "why are there no results" follow-up. Suppressed when
                     // defaults.radius=0, which is the operator's "I want
                     // global by default" opt-out.
-                    sender.sendMessage(net.kyori.adventure.text.Component.text(
-                            "(no range; defaulting to " + defaultRadius
-                                    + " blocks - add r:N or -g for global)",
-                            net.kyori.adventure.text.format.NamedTextColor.DARK_GRAY));
+                    sender.sendMessage(Messages.getInstance().format(
+                            "query.default-radius-hint", sender, "%radius%", defaultRadius));
                 }
                 // defaultRadius == 0 means "global default" - no predicate
                 // added, no reminder shown. The whole-DB scan is what the

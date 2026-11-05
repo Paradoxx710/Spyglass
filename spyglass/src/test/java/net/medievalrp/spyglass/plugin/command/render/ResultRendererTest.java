@@ -58,6 +58,7 @@ class ResultRendererTest {
     private static SpyglassConfig configWithVerb(String event, String verb) {
         SpyglassConfig config = mock(SpyglassConfig.class);
         when(config.pastTense(event)).thenReturn(verb);
+        when(config.timezone()).thenReturn(java.time.ZoneId.of(SpyglassConfig.DEFAULT_TIMEZONE));
         return config;
     }
 
@@ -87,8 +88,20 @@ class ResultRendererTest {
         Component rendered = renderer.renderSingle(useRecord(), EnumSet.noneOf(Flag.class), true);
 
         assertThat(PlainTextComponentSerializer.plainText().serialize(rendered))
-                .isEqualTo("Alice|triggered| SCULK_SENSOR");
+                .isEqualTo("Alice|triggered|SCULK_SENSOR");
         assertThat(hoverPlain(rendered)).isEqualTo("triggered\nworld 10,64,20");
+    }
+
+    @Test
+    void paginationHeaderUsesTheConfiguredMessageTemplate() {
+        Messages.setInstance(new Messages(Map.of(
+                "commands.page-header", "Page %page% of %total% (%results% records)"
+        )));
+
+        String header = PlainTextComponentSerializer.plainText().serialize(
+                ResultRenderer.pageHeader(2, 4, 17));
+
+        assertThat(header).isEqualTo("Page 2 of 4 (17 records) [←] [→]");
     }
 
     @Test
@@ -107,11 +120,35 @@ class ResultRendererTest {
                 renderer.renderAggregation(
                         new net.medievalrp.spyglass.api.query.QueryResult.RecordAggregation(record, 1),
                         EnumSet.noneOf(Flag.class), true));
-        String date = occurred.atZone(java.time.ZoneId.systemDefault())
+        String date = occurred.atZone(java.time.ZoneId.of(SpyglassConfig.DEFAULT_TIMEZONE))
                 .format(java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy"));
 
         assertThat(rendered).isEqualTo("= (" + date
                 + ") Alice edited OAK_SIGN with hello i'm a message in first line second line 17m");
+    }
+
+    @Test
+    void configuredTimezoneIsUsedForRecordDateAndHoverTimestamp() {
+        Messages.setInstance(new Messages(Map.of(
+                "results.line", "%date%",
+                "results.hover.default", "%when%")));
+        Instant occurred = Instant.parse("2024-01-01T01:00:00Z");
+        BlockPlaceRecord record = signEditRecord(occurred,
+                List.of("", "", "", ""), List.of("", "", "", ""),
+                List.of("", "", "", ""), List.of("", "", "", ""));
+        SpyglassApi api = mock(SpyglassApi.class);
+        when(api.displayRenderer("sign-edit")).thenReturn(Optional.empty());
+        SpyglassConfig config = configWithVerb("sign-edit", "edited");
+        when(config.timezone()).thenReturn(java.time.ZoneId.of("America/Los_Angeles"));
+        ResultRenderer renderer = new ResultRenderer(api, config);
+
+        Component rendered = renderer.renderAggregation(
+                new net.medievalrp.spyglass.api.query.QueryResult.RecordAggregation(record, 1),
+                EnumSet.noneOf(Flag.class), true);
+
+        assertThat(PlainTextComponentSerializer.plainText().serialize(rendered))
+                .contains("31/12/2023");
+        assertThat(hoverPlain(rendered)).contains("2023-12-31 17:00:00");
     }
 
     @Test

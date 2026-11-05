@@ -36,7 +36,8 @@ public final class TeleportService {
         }
         World world = resolveWorld(worldArg);
         if (world == null) {
-            sender.sendMessage(Feedback.error("World not found: " + worldArg));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.teleport.world-not-found",
+                    "%world%", worldArg));
             return;
         }
         double x;
@@ -47,7 +48,7 @@ public final class TeleportService {
             y = Double.parseDouble(yArg);
             z = Double.parseDouble(zArg) + 0.5D;
         } catch (NumberFormatException ex) {
-            sender.sendMessage(Feedback.error("Invalid teleport coordinates."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.teleport.invalid-coordinates"));
             return;
         }
         // {@code Double.parseDouble} accepts "Infinity" and "NaN"; teleporting
@@ -56,7 +57,7 @@ public final class TeleportService {
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)
                 || Math.abs(x) > MAX_COORD || Math.abs(z) > MAX_COORD
                 || y < MIN_Y || y > MAX_Y) {
-            sender.sendMessage(Feedback.error("Teleport coordinates out of range."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.teleport.out-of-range"));
             return;
         }
         player.teleport(new Location(world, x, y, z));

@@ -7,6 +7,8 @@ import net.medievalrp.spyglass.api.param.ParamParseException;
 import net.medievalrp.spyglass.api.param.QueryParamHandler;
 import net.medievalrp.spyglass.api.query.QueryPredicate;
 import org.bukkit.command.CommandSender;
+import net.medievalrp.spyglass.plugin.command.CatalogMessageException;
+import net.medievalrp.spyglass.plugin.command.render.Messages;
 
 public final class EventParam implements QueryParamHandler {
 
@@ -71,9 +73,10 @@ public final class EventParam implements QueryParamHandler {
             CommandSender sender = context != null ? context.sender() : null;
             String requiredPermission = permissionResolver.apply(name);
             if (sender != null && requiredPermission != null && !sender.hasPermission(requiredPermission)) {
-                String template = net.medievalrp.spyglass.plugin.command.render.Messages.getInstance()
-                        .raw("commands.action-no-permission");
-                throw new ParamParseException(template.replace("%action%", name));
+                String message = Messages.getInstance().raw("commands.action-no-permission")
+                        .replace("%action%", name);
+                throw new ParamParseException(message,
+                        new CatalogMessageException("catalog.search.no-permission", "%action%", name));
             }
             addWithRolledCounterpart(negated ? excludes : includes, name);
         }

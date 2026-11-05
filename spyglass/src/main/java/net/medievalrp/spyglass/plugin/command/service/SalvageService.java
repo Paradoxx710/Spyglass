@@ -23,22 +23,22 @@ public final class SalvageService {
 
     public void execute(CommandSender sender) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(Feedback.error("Open rollback salvage in-game as a player."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.salvage.player-only"));
             return;
         }
         if (store == null) {
-            sender.sendMessage(Feedback.error("Container salvage is not enabled on this backend."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.salvage.disabled"));
             return;
         }
         if (view == null) {
-            sender.sendMessage(Feedback.error("The rollback salvage GUI is unavailable. Contact an administrator."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.salvage.unavailable"));
             return;
         }
         try {
             view.open(player);
         } catch (RuntimeException ex) {
             logger.log(Level.WARNING, "Spyglass salvage GUI failed", ex);
-            sender.sendMessage(Feedback.error("Could not open the rollback salvage GUI. Contact an administrator."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.salvage.open-failed"));
         }
     }
 }

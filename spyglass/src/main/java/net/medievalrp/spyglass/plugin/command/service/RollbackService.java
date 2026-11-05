@@ -235,14 +235,14 @@ public final class RollbackService {
             // back. MAX_VALUE => the store query and apply loop never truncate.
             request = forceNoGroup(parser.parse(sender, raw, Integer.MAX_VALUE, resolvedIps), mode);
         } catch (ParamParseException ex) {
-            sender.sendMessage(Feedback.error(ex.getMessage()));
+            sender.sendMessage(Feedback.parseError(sender, ex));
             return;
         }
 
         String deniedRollbackEvent = findDeniedRollbackEvent(request.predicates(), sender);
         if (deniedRollbackEvent != null) {
-            String template = Messages.getInstance().raw("commands.action-rollback-no-permission");
-            sender.sendMessage(Feedback.error(template.replace("%action%", deniedRollbackEvent)));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.rollback.no-permission",
+                    "%action%", deniedRollbackEvent));
             return;
         }
 
@@ -275,8 +275,8 @@ public final class RollbackService {
 
         int position = jobQueue.submit(job);
         if (position > 0) {
-            sender.sendMessage(Feedback.bonus("Rollback queued at position " + position
-                    + " (id " + job.shortId() + "). View / cancel with /sg rbqueue."));
+            sender.sendMessage(Feedback.catalogBonus(sender, "catalog.rollback.queued",
+                    "%position%", position, "%id%", job.shortId()));
         }
     }
 
@@ -764,7 +764,8 @@ public final class RollbackService {
         }
 
         if (totalSeen == 0) {
-            support.onMainThread(() -> sender.sendMessage(Feedback.error("No results.")));
+            support.onMainThread(() -> sender.sendMessage(
+                    Feedback.catalogError(sender, "catalog.rollback.no-results")));
             return;
         }
 

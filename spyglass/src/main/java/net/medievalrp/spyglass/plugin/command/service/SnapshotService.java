@@ -166,11 +166,11 @@ public final class SnapshotService {
 
     public void execute(CommandSender sender, String rawParams) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage(Feedback.error("Open snapshots in-game as a player."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.snapshot.player-only"));
             return;
         }
         if (view == null) {
-            sender.sendMessage(Feedback.error("The snapshot GUI is unavailable. Contact an administrator."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.snapshot.gui-unavailable"));
             return;
         }
         ParsedQuery parsed;
@@ -208,7 +208,8 @@ public final class SnapshotService {
                             }
                             return;
                         }
-                        sender.sendMessage(Feedback.error("Unknown player: " + name));
+                        sender.sendMessage(Feedback.catalogError(sender, "catalog.snapshot.unknown-player",
+                                "%player%", name));
                     });
                     return;
                 }
@@ -225,8 +226,8 @@ public final class SnapshotService {
                             }
                             return;
                         }
-                        sender.sendMessage(Feedback.error("No snapshot for " + name + " at or before "
-                                + formatInstant(parsed.asOf()) + "."));
+                        sender.sendMessage(Feedback.catalogError(sender, "catalog.snapshot.no-snapshot",
+                                "%player%", name, "%time%", formatInstant(parsed.asOf())));
                         return;
                     }
                     PlayerSnapshot snapshot = found.get();
@@ -246,7 +247,7 @@ public final class SnapshotService {
             } catch (RuntimeException ex) {
                 logger.warning("Spyglass snapshot player lookup failed for " + name + ": " + ex.getMessage());
                 support.onMainThread(() ->
-                        sender.sendMessage(Feedback.error("Snapshot lookup failed - see the console.")));
+                        sender.sendMessage(Feedback.catalogError(sender, "catalog.snapshot.lookup-failed")));
             }
         });
     }
@@ -290,8 +291,8 @@ public final class SnapshotService {
                     if (!target.primary().containerPresent()
                             && outcome.recordCount() == 0
                             && outcome.reconstruction().slots().isEmpty()) {
-                        sender.sendMessage(Feedback.error("Not a container, and no container"
-                                + " history at " + target.label() + "."));
+                        sender.sendMessage(Feedback.catalogError(sender,
+                                "catalog.snapshot.not-container-history", "%target%", target.label()));
                         return;
                     }
                     SnapshotSession session = buildContainerSession(target, t, outcome.reconstruction());
@@ -302,7 +303,8 @@ public final class SnapshotService {
                 logger.warning("Spyglass snapshot container reconstruction failed at "
                         + target.label() + ": " + ex.getMessage());
                 support.onMainThread(() ->
-                        sender.sendMessage(Feedback.error("Snapshot reconstruction failed - see the console.")));
+                        sender.sendMessage(Feedback.catalogError(sender,
+                                "catalog.snapshot.reconstruction-failed")));
             }
         });
     }
@@ -324,25 +326,26 @@ public final class SnapshotService {
             // the world.
             if (!world.getWorldBorder().isInside(
                     new org.bukkit.Location(world, parsed.x(), parsed.y(), parsed.z()))) {
-                sender.sendMessage(Feedback.error("trg: is outside the world border."));
+                sender.sendMessage(Feedback.catalogError(sender,
+                        "catalog.snapshot.outside-world-border"));
                 return null;
             }
             if (!world.isChunkGenerated(parsed.x() >> 4, parsed.z() >> 4)) {
-                sender.sendMessage(Feedback.error("No container has ever existed at "
-                        + parsed.x() + "," + parsed.y() + "," + parsed.z()
-                        + " - that chunk has never been generated."));
+                sender.sendMessage(Feedback.catalogError(sender,
+                        "catalog.snapshot.container-never-existed",
+                        "%location%", parsed.x() + "," + parsed.y() + "," + parsed.z()));
                 return null;
             }
             block = world.getBlockAt(parsed.x(), parsed.y(), parsed.z());
         } else {
             if (!(sender instanceof Player player)) {
-                sender.sendMessage(Feedback.error(
-                        "Container snapshot needs a player (to look at a block), or trg:x,y,z."));
+                sender.sendMessage(Feedback.catalogError(sender,
+                        "catalog.snapshot.container-needs-target"));
                 return null;
             }
             Block targeted = player.getTargetBlockExact(LOOK_REACH);
             if (targeted == null) {
-                player.sendMessage(Feedback.error("No block in reach - look at a container, or use trg:x,y,z."));
+                player.sendMessage(Feedback.catalogError(player, "catalog.snapshot.no-block-in-reach"));
                 return null;
             }
             block = targeted;
@@ -354,14 +357,15 @@ public final class SnapshotService {
         if (worldName != null) {
             World world = Bukkit.getWorld(worldName);
             if (world == null) {
-                sender.sendMessage(Feedback.error("Unknown world: " + worldName));
+                sender.sendMessage(Feedback.catalogError(sender, "catalog.snapshot.unknown-world",
+                        "%world%", worldName));
             }
             return world;
         }
         if (sender instanceof Player player) {
             return player.getWorld();
         }
-        sender.sendMessage(Feedback.error("trg: needs w: when run from the console."));
+        sender.sendMessage(Feedback.catalogError(sender, "catalog.snapshot.console-needs-world"));
         return null;
     }
 
@@ -436,7 +440,8 @@ public final class SnapshotService {
                     block.getWorld().getName() + " " + block.getX() + "," + block.getY() + "," + block.getZ()
                             + " (container no longer present)");
         }
-        sender.sendMessage(Feedback.error("Not a container: " + state.getType().name()));
+        sender.sendMessage(Feedback.catalogError(sender, "catalog.snapshot.not-container",
+                "%material%", state.getType().name()));
         return null;
     }
 
@@ -618,7 +623,7 @@ public final class SnapshotService {
             return;
         }
         if (view == null) {
-            sender.sendMessage(Feedback.error("The snapshot GUI is unavailable. Contact an administrator."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.snapshot.gui-unavailable"));
             return;
         }
         try {
@@ -626,7 +631,7 @@ public final class SnapshotService {
         } catch (RuntimeException ex) {
             logger.log(java.util.logging.Level.WARNING, "Spyglass snapshot GUI failed for "
                     + session.subjectLabel(), ex);
-            sender.sendMessage(Feedback.error("Could not open the snapshot GUI. Contact an administrator."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.snapshot.open-failed"));
         }
     }
 
@@ -639,11 +644,9 @@ public final class SnapshotService {
      */
     static List<Component> captureDisabledLines() {
         return List.of(
-                Feedback.error("Player inventory snapshots are turned off."),
-                Feedback.bonus("Set snapshot.players.enabled = true in config.conf and restart"
-                        + " to start recording them."),
-                Feedback.bonus("Container snapshots need no setting: look at a container,"
-                        + " or use trg:x,y,z."));
+                Feedback.catalogError("catalog.snapshot.player-snapshots-disabled"),
+                Feedback.catalogBonus("catalog.snapshot.enable-player-snapshots"),
+                Feedback.catalogBonus("catalog.snapshot.container-snapshots-no-setting"));
     }
 
     private static String formatInstant(Instant instant) {

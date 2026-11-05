@@ -11,15 +11,22 @@ import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
+import net.medievalrp.spyglass.plugin.command.render.Messages;
 import net.medievalrp.spyglass.plugin.command.service.tool.ToolStateStore;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class ToolServiceTest {
+
+    @AfterEach
+    void resetMessages() {
+        Messages.setInstance(null);
+    }
 
     private static void emptyInventory(Player player) {
         PlayerInventory inv = mock(PlayerInventory.class);
@@ -89,6 +96,46 @@ class ToolServiceTest {
         verify(store).disable(id);
         assertThat(ServiceTestSupport.plainTexts(captured))
                 .anyMatch(line -> line.contains("Deactivated the Spyglass Data Tool"));
+    }
+
+    @Test
+    void configuredToolMessagesAreUsedWithoutTheGlobalPrefix() {
+        Messages.setInstance(new Messages(java.util.Map.of(
+                "prefix", "[Global]",
+                "commands.tool-activated", "custom activation",
+                "commands.tool-deactivated", "custom deactivation",
+                "commands.tool-no-room", "custom no room"
+        )));
+        UUID id = UUID.randomUUID();
+        ToolStateStore store = mock(ToolStateStore.class);
+        when(store.loadActive()).thenReturn(List.of());
+        ToolService.WandHandout handout = mock(ToolService.WandHandout.class);
+        Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(id);
+        emptyInventory(player);
+        List<Component> captured = ServiceTestSupport.captureMessages(player);
+
+        ToolService service = new ToolService(store, Material.REDSTONE_LAMP, handout);
+        service.toggle(player);
+        service.deactivate(player);
+
+        assertThat(ServiceTestSupport.plainTexts(captured))
+                .containsExactly("custom activation", "custom deactivation");
+
+        Player fullPlayer = mock(Player.class);
+        when(fullPlayer.getUniqueId()).thenReturn(UUID.randomUUID());
+        PlayerInventory fullInventory = mock(PlayerInventory.class);
+        ItemStack air = mock(ItemStack.class);
+        when(air.getType()).thenReturn(Material.AIR);
+        when(fullPlayer.getInventory()).thenReturn(fullInventory);
+        when(fullInventory.getContents()).thenReturn(new ItemStack[0]);
+        when(fullInventory.getItemInMainHand()).thenReturn(air);
+        when(fullInventory.firstEmpty()).thenReturn(-1);
+        List<Component> fullMessages = ServiceTestSupport.captureMessages(fullPlayer);
+
+        service.toggle(fullPlayer);
+
+        assertThat(ServiceTestSupport.plainTexts(fullMessages)).containsExactly("custom no room");
     }
 
     @Test

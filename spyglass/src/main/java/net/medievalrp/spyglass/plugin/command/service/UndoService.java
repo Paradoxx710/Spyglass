@@ -50,7 +50,7 @@ public final class UndoService {
 
     public void execute(CommandSender sender) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(Feedback.error("You must be a player to use this command"));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.undo.player-only"));
             return;
         }
         sender.sendMessage(Feedback.querying());
@@ -60,12 +60,13 @@ public final class UndoService {
                 opened = undoStack.openLatest(player.getUniqueId());
             } catch (RuntimeException ex) {
                 support.onMainThread(() -> player.sendMessage(
-                        Feedback.error("Undo lookup failed: " + ex.getMessage())));
+                        Feedback.catalogError(player, "catalog.undo.lookup-failed",
+                                "%error%", ex.getMessage())));
                 return;
             }
             if (opened.isEmpty()) {
                 support.onMainThread(() -> player.sendMessage(
-                        Feedback.error("You have no valid actions to undo")));
+                        Feedback.catalogError(player, "catalog.undo.no-actions")));
                 return;
             }
             switch (opened.get()) {
@@ -231,7 +232,8 @@ public final class UndoService {
             Throwable cause = ex instanceof CompletionException && ex.getCause() != null
                     ? ex.getCause() : ex;
             support.onMainThread(() -> player.sendMessage(
-                    Feedback.error("Undo failed: " + cause.getMessage())));
+                    Feedback.catalogError(player, "catalog.undo.failed",
+                            "%error%", cause.getMessage())));
             return;
         } finally {
             legacy.close();

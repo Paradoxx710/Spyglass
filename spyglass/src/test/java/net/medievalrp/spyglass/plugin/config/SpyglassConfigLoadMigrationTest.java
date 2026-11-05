@@ -24,10 +24,14 @@ import org.spongepowered.configurate.hocon.HoconConfigurationLoader;
 class SpyglassConfigLoadMigrationTest {
 
     private static JavaPlugin pluginIn(Path dataFolder) {
+        return pluginIn(dataFolder, Logger.getLogger("test"));
+    }
+
+    private static JavaPlugin pluginIn(Path dataFolder, Logger logger) {
         // Mockito 5's inline mock maker stubs JavaPlugin's final accessors.
         JavaPlugin plugin = mock(JavaPlugin.class);
         when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
-        when(plugin.getLogger()).thenReturn(Logger.getLogger("test"));
+        when(plugin.getLogger()).thenReturn(logger);
         // Fresh stream per call: load() reads the bundled template twice
         // (migration, then event auto-merge).
         when(plugin.getResource("config.conf")).thenAnswer(inv ->
@@ -91,6 +95,34 @@ class SpyglassConfigLoadMigrationTest {
             assertThat(siblings.filter(p -> p.getFileName().toString().endsWith(".bak")))
                     .isEmpty();
         }
+    }
+
+    @Test
+    void invalidTimezoneFallsBackToDefaultAndWarns(@TempDir Path dataFolder) throws Exception {
+        Path file = dataFolder.resolve("config.conf");
+        Files.writeString(file, "config-version = " + SpyglassConfig.CONFIG_VERSION + "\n"
+                + "timezone = \"Not/A_Real_Zone\"\n");
+        Logger logger = Logger.getLogger("spyglass-config-timezone-test-" + System.nanoTime());
+        java.util.List<String> warnings = new java.util.ArrayList<>();
+        java.util.logging.Handler handler = new java.util.logging.Handler() {
+            @Override
+            public void publish(java.util.logging.LogRecord record) {
+                warnings.add(record.getMessage());
+            }
+
+            @Override public void flush() {}
+            @Override public void close() {}
+        };
+        logger.addHandler(handler);
+
+        SpyglassConfig config = SpyglassConfig.load(pluginIn(dataFolder, logger));
+
+        assertThat(config.timezone()).isEqualTo(java.time.ZoneId.of(SpyglassConfig.DEFAULT_TIMEZONE));
+        assertThat(warnings).anySatisfy(message -> {
+            assertThat(message).contains("invalid timezone 'Not/A_Real_Zone'");
+            assertThat(message).contains(SpyglassConfig.DEFAULT_TIMEZONE);
+        });
+        logger.removeHandler(handler);
     }
 
     @Test

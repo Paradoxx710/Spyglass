@@ -809,8 +809,9 @@ public final class SpyglassPlugin extends JavaPlugin {
                 SpyglassConfig next = SpyglassConfig.load(this);
                 var restart = net.medievalrp.spyglass.plugin.config.LiveConfig.restartRequired(config, next);
                 if (!restart.isEmpty()) {
-                    sender.sendMessage("Spyglass: restart required for " + String.join(", ", restart)
-                            + "; no live settings were changed.");
+                    sender.sendMessage(net.medievalrp.spyglass.plugin.command.render.Messages.getInstance()
+                            .format("commands.config-restart-required", sender,
+                                    "%changes%", String.join(", ", restart)));
                     return;
                 }
                 for (RecordingListener listener : listeners) {
@@ -834,12 +835,12 @@ public final class SpyglassPlugin extends JavaPlugin {
                 renderer.setConfig(next);
                 config = next;
                 net.medievalrp.spyglass.plugin.command.render.Messages.load(getDataFolder().toPath(), getLogger());
-                sender.sendMessage(net.medievalrp.spyglass.plugin.command.render.Feedback.success(
-                        net.medievalrp.spyglass.plugin.command.render.Messages.getInstance().raw("commands.config-reloaded")));
+                sender.sendMessage(net.medievalrp.spyglass.plugin.command.render.Messages.getInstance()
+                        .format("commands.config-reloaded", sender));
             } catch (Exception failure) {
                 getLogger().warning("Spyglass reload failed: " + failure.getMessage());
-                sender.sendMessage(net.medievalrp.spyglass.plugin.command.render.Feedback.error(
-                        net.medievalrp.spyglass.plugin.command.render.Messages.getInstance().raw("commands.config-reload-failed")));
+                sender.sendMessage(net.medievalrp.spyglass.plugin.command.render.Messages.getInstance()
+                        .format("commands.config-reload-failed", sender));
             }
         });
         var updateNotifier = new net.medievalrp.spyglass.plugin.update.UpdateNotifier(this);

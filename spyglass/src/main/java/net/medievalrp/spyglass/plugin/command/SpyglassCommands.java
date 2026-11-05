@@ -136,10 +136,10 @@ public final class SpyglassCommands {
     private static final String SUPPORT_URL = "https://" + SUPPORT_INVITE;
 
     private java.util.function.Consumer<CommandSender> reloadHandler = sender -> {};
-    private java.util.function.Supplier<String> updateStatus = () -> "";
+    private java.util.function.Supplier<Component> updateStatus = Component::empty;
 
     public void setReloadHandler(java.util.function.Consumer<CommandSender> handler) { reloadHandler = handler; }
-    public void setUpdateStatus(java.util.function.Supplier<String> status) { updateStatus = status; }
+    public void setUpdateStatus(java.util.function.Supplier<Component> status) { updateStatus = status; }
 
     public CommandManager<CommandSender> register() {
         LegacyPaperCommandManager<CommandSender> manager = LegacyPaperCommandManager.createNative(
@@ -342,13 +342,13 @@ public final class SpyglassCommands {
         String joined = api.enabledEvents().stream().sorted()
                 .reduce((a, b) -> a + ", " + b)
                 .orElse("(none)");
-        sender.sendMessage(Feedback.success("Enabled Events: "));
+        sender.sendMessage(Feedback.success("Enabled Events:"));
         sender.sendMessage(Feedback.bonus(joined));
     }
 
     private void sendVersion(CommandSender sender) {
-        String status = updateStatus.get();
-        if (!status.isBlank()) sender.sendMessage(Feedback.bonus(status));
+        Component status = updateStatus.get();
+        if (!Component.empty().equals(status)) sender.sendMessage(status);
         for (Component line : versionLines(plugin.getPluginMeta().getVersion(),
                 plugin.getPluginMeta().getAuthors(),
                 plugin.getServer().getMinecraftVersion())) {

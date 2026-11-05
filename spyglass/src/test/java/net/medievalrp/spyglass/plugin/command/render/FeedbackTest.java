@@ -4,27 +4,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.medievalrp.spyglass.api.param.ParamParseException;
+import net.medievalrp.spyglass.plugin.command.CatalogMessageException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Guards the command feedback components. The static {@link Feedback#PREFIX}
- * initializer (and the per-message builders) build Adventure components via
- * {@code Component.text()...asComponent()} - {@code asComponent()} rather than
- * {@code build()} because Paper 26.2+ ships an Adventure whose
- * {@code TextComponent.Builder.build()} descriptor changed, which threw
- * {@code NoSuchMethodError} from every command. {@code ComponentLike.asComponent()}
- * is stable across Adventure versions. (The cross-version runtime guard is the
- * RCON WorldEdit-rollback test under docker/regression/scripts/.)
- */
+/** Guards the configurable command feedback templates. */
 class FeedbackTest {
+
+    @AfterEach
+    void resetMessages() {
+        Messages.setInstance(null);
+    }
 
     private static String plain(Component c) {
         return PlainTextComponentSerializer.plainText().serialize(c);
-    }
-
-    @Test
-    void prefixInitializesToHouseStyle() {
-        assertThat(plain(Feedback.PREFIX)).isEqualTo("«Spyglass»");
     }
 
     @Test
@@ -41,16 +35,31 @@ class FeedbackTest {
 
     @Test
     void everyCategoryFramesWithASpaceAfterThePrefix() {
-        // #251: success was the odd one out (v1 parity) and rendered
-        // "«Spyglass»Spyglass version x.y.z" on /sg version.
-        assertThat(plain(Feedback.info("m"))).startsWith("«Spyglass»");
-        assertThat(plain(Feedback.warn("m"))).startsWith("«Spyglass»");
-        assertThat(plain(Feedback.error("m"))).startsWith("«Spyglass»");
-        assertThat(plain(Feedback.success("m"))).startsWith("«Spyglass»");
+        assertThat(plain(Feedback.info("m"))).isEqualTo("«Spyglass» m");
+        assertThat(plain(Feedback.warn("m"))).isEqualTo("«Spyglass» m");
+        assertThat(plain(Feedback.error("m"))).isEqualTo("«Spyglass» (Error) m");
+        assertThat(plain(Feedback.success("m"))).isEqualTo("«Spyglass» m");
+        assertThat(plain(Feedback.bonus("m"))).isEqualTo("«Spyglass» m");
+        assertThat(plain(Feedback.toolOk("m"))).isEqualTo("«Spyglass» m");
     }
 
     @Test
-    void bonusIsPlainWithoutPrefix() {
-        assertThat(plain(Feedback.bonus("skip reason"))).isEqualTo("skip reason");
+    void queryingMessageUsesTheConfiguredPrefixAndSpacing() {
+        assertThat(plain(Feedback.querying())).isEqualTo("«Spyglass» Querying records...");
+    }
+
+    @Test
+    void parseErrorsRenderTheirCatalogMessageWithoutDuplicatingTheErrorFrame() {
+        Messages.setInstance(new Messages(java.util.Map.of(
+                "prefix", "[Custom]",
+                "feedback.error", "${prefix} <yellow>ERR</yellow> %message%",
+                "catalog.search.no-permission",
+                "${prefix} <red>(Error)</red> Custom denial for %action%"
+        )));
+        ParamParseException exception = new ParamParseException("Fallback",
+                new CatalogMessageException("catalog.search.no-permission", "%action%", "break"));
+
+        assertThat(plain(Feedback.parseError(null, exception)))
+                .isEqualTo("[Custom] ERR Custom denial for break");
     }
 }

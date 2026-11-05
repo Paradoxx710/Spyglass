@@ -72,8 +72,8 @@ public final class PageCache implements Listener {
             if (cached != null) {
                 pages.remove(id);
             }
-            sender.sendMessage(net.medievalrp.spyglass.plugin.command.render.Feedback.warn(
-                    "No active search results."));
+            sender.sendMessage(net.medievalrp.spyglass.plugin.command.render.Feedback.catalogWarn(
+                    sender, "catalog.search.no-active-results"));
             return false;
         }
         int count = cached.count();

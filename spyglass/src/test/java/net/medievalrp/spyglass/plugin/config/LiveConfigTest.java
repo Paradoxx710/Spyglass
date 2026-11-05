@@ -27,9 +27,18 @@ class LiveConfigTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test void invalidTimezoneIsRejectedOnReload(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        var file = dir.resolve("config.conf");
+        java.nio.file.Files.writeString(file, "timezone = invalid-zone");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> LiveConfig.validateFile(file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid timezone: invalid-zone");
+    }
+
     private SpyglassConfig config(int queue, String retention, Material wand) {
         return new SpyglassConfig(null, new SpyglassConfig.Storage(Duration.parse(retention), queue, 0, false, 10, Duration.parse("10s")),
-                null, null, Map.of("break", new SpyglassConfig.EventSettings(true, "broke", null, false)),
+                java.time.ZoneId.of(SpyglassConfig.DEFAULT_TIMEZONE), null, null,
+                Map.of("break", new SpyglassConfig.EventSettings(true, "broke", null, false)),
                 List.of("login"), new SpyglassConfig.Tool(wand, Duration.parse("26w")), null, null, null, null, null, null);
     }
     @Test void liveSettingsCanChangeTogether() {

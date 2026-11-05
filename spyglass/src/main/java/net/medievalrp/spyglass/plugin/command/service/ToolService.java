@@ -1,7 +1,6 @@
 package net.medievalrp.spyglass.plugin.command.service;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.medievalrp.spyglass.plugin.command.render.Feedback;
 import net.medievalrp.spyglass.plugin.command.render.Messages;
 
@@ -77,7 +76,7 @@ public final class ToolService {
         int slot = firstWandSlot(inv);
         boolean inHand = isWandInHand(player);
         if (slot == -1 && inv.firstEmpty() < 0) {
-            player.sendMessage(Feedback.error("Make room in your inventory for the Spyglass wand."));
+            player.sendMessage(Messages.getInstance().format("commands.tool-no-room", player));
             return;
         }
 
@@ -88,16 +87,13 @@ public final class ToolService {
         persistAsync(() -> store.enable(id), "enable");
         if (slot == -1) {
             handout.give(player, wandMaterial);
-            player.sendMessage(Feedback.toolOk("Added the Spyglass data tool to your inventory."));
+            player.sendMessage(Messages.getInstance().format("commands.tool-activated", player));
             return;
         }
         if (!inHand) {
             swapToMainHand(inv, slot);
         }
-        player.sendMessage(Component.text()
-                .append(Component.text("Activated the Spyglass Data Tool ", NamedTextColor.GREEN))
-                .append(Component.text("(" + wandMaterial.name() + ")", NamedTextColor.GRAY))
-                .asComponent());
+        player.sendMessage(Messages.getInstance().format("commands.tool-activated", player));
     }
 
     public void deactivate(Player player) {
@@ -105,7 +101,7 @@ public final class ToolService {
         active.remove(id);
         handout.take(player, wandMaterial);
         persistAsync(() -> store.disable(id), "disable");
-        player.sendMessage(Feedback.toolOk("Deactivated the Spyglass Data Tool"));
+        player.sendMessage(Messages.getInstance().format("commands.tool-deactivated", player));
     }
 
     // Tool state is persisted off the main thread. The in-memory `active`
@@ -180,7 +176,7 @@ public final class ToolService {
                         player.getInventory().addItem(stack);
                         return;
                     }
-                    player.sendMessage(Feedback.error("Make room in your inventory for the Spyglass wand."));
+                    player.sendMessage(Messages.getInstance().format("commands.tool-no-room", player));
                 }
 
                 @Override

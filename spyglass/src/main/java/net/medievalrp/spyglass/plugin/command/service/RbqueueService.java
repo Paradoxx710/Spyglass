@@ -5,8 +5,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.medievalrp.spyglass.plugin.command.render.Feedback;
+import net.medievalrp.spyglass.plugin.command.render.Messages;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.ApiStatus;
 
@@ -55,8 +55,7 @@ public final class RbqueueService {
             resume(sender, trimmed.substring("resume ".length()).trim());
             return;
         }
-        sender.sendMessage(Feedback.error(
-                "Usage: /sg rbqueue [list | stop | cancel <id> | resume <id>]"));
+        sender.sendMessage(format(sender, "rbqueue.usage"));
     }
 
     private void list(CommandSender sender) {
@@ -75,56 +74,47 @@ public final class RbqueueService {
                             List<RollbackResumeStore.Saved> resumePending) {
         if (snap.inFlight() == null && snap.pending().isEmpty()
                 && snap.recent().isEmpty() && resumePending.isEmpty()) {
-            sender.sendMessage(Feedback.bonus("No rollbacks running, queued, recent, or resumable."));
+            sender.sendMessage(format(sender, "rbqueue.empty"));
             return;
         }
         if (!resumePending.isEmpty()) {
-            sender.sendMessage(Component.text("» Resumable (interrupted by previous shutdown):")
-                    .color(NamedTextColor.RED));
+            sender.sendMessage(format(sender, "rbqueue.resumable-header"));
             for (var s : resumePending) {
-                sender.sendMessage(Component.text(
-                        "  " + s.shortId() + " (" + s.mode() + ") by " + s.operatorName()
-                                + " - query: " + s.query() + " - started " + s.startedAt())
-                        .color(NamedTextColor.RED));
+                sender.sendMessage(format(sender, "rbqueue.resumable-entry",
+                        "%id%", s.shortId(), "%mode%", s.mode(), "%operator%", s.operatorName(),
+                        "%query%", s.query(), "%started%", s.startedAt()));
             }
-            sender.sendMessage(Component.text(
-                    "  Use /sg rbqueue resume <id> to re-run, /sg rbqueue cancel <id> to discard.")
-                    .color(NamedTextColor.GRAY));
+            sender.sendMessage(format(sender, "rbqueue.resumable-help"));
         }
         if (snap.inFlight() != null) {
             RollbackJob j = snap.inFlight();
             String elapsed = humanElapsed(j.startTime, Instant.now());
-            sender.sendMessage(Component.text(
-                    "» Running: " + j.shortId() + " (" + j.mode + ") by " + j.operatorName
-                            + " — " + j.appliedCount.get() + " applied, "
-                            + j.skippedCount.get() + " skipped, " + elapsed)
-                    .color(NamedTextColor.AQUA));
-            sender.sendMessage(Component.text("    query: " + j.query)
-                    .color(NamedTextColor.GRAY));
+            sender.sendMessage(format(sender, "rbqueue.running-header",
+                    "%id%", j.shortId(), "%mode%", j.mode, "%operator%", j.operatorName,
+                    "%applied%", j.appliedCount.get(), "%skipped%", j.skippedCount.get(),
+                    "%elapsed%", elapsed));
+            sender.sendMessage(format(sender, "rbqueue.query", "%query%", j.query));
         }
         if (!snap.pending().isEmpty()) {
-            sender.sendMessage(Component.text("» Queued (" + snap.pending().size() + "):")
-                    .color(NamedTextColor.YELLOW));
+            sender.sendMessage(format(sender, "rbqueue.queued-header",
+                    "%count%", snap.pending().size()));
             int pos = 1;
             for (RollbackJob j : snap.pending()) {
-                sender.sendMessage(Component.text(
-                        "  " + pos + ". " + j.shortId() + " (" + j.mode + ") by "
-                                + j.operatorName + " — query: " + j.query)
-                        .color(NamedTextColor.GRAY));
+                sender.sendMessage(format(sender, "rbqueue.pending-entry",
+                        "%position%", pos, "%id%", j.shortId(), "%mode%", j.mode,
+                        "%operator%", j.operatorName, "%query%", j.query));
                 pos++;
             }
         }
         if (!snap.recent().isEmpty()) {
-            sender.sendMessage(Component.text("» Recent:")
-                    .color(NamedTextColor.DARK_GRAY));
+            sender.sendMessage(format(sender, "rbqueue.recent-header"));
             for (RollbackJob j : snap.recent()) {
                 String runtime = (j.startTime != null && j.endTime != null)
                         ? humanElapsed(j.startTime, j.endTime) : "?";
-                sender.sendMessage(Component.text(
-                        "  " + j.shortId() + " " + j.state + " (" + j.mode + ") by "
-                                + j.operatorName + " — " + j.appliedCount.get() + " applied, "
-                                + runtime)
-                        .color(NamedTextColor.DARK_GRAY));
+                sender.sendMessage(format(sender, "rbqueue.recent-entry",
+                        "%id%", j.shortId(), "%state%", j.state, "%mode%", j.mode,
+                        "%operator%", j.operatorName, "%applied%", j.appliedCount.get(),
+                        "%elapsed%", runtime));
             }
         }
     }
@@ -132,13 +122,11 @@ public final class RbqueueService {
     private void stop(CommandSender sender) {
         var cancelled = queue.cancelInFlight();
         if (cancelled.isEmpty()) {
-            sender.sendMessage(Feedback.error("No rollback in flight."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.rollback.no-in-flight"));
             return;
         }
-        sender.sendMessage(Component.text(
-                "Cancel signal sent to " + cancelled.get().shortId()
-                        + ". Current chunk will finish, then the rollback stops.")
-                .color(NamedTextColor.YELLOW));
+        sender.sendMessage(format(sender, "rbqueue.cancel-stopping",
+                "%id%", cancelled.get().shortId()));
     }
 
     private void cancel(CommandSender sender, String idArg) {
@@ -159,21 +147,20 @@ public final class RbqueueService {
             for (var saved : pending) {
                 if (saved.id().equals(jobId)) {
                     resumeStore.deleteFile(saved.file());
-                    sender.sendMessage(Component.text(
-                            "Discarded resume entry " + saved.shortId() + ".")
-                            .color(NamedTextColor.YELLOW));
+                    sender.sendMessage(format(sender, "rbqueue.discarded-resume",
+                            "%id%", saved.shortId()));
                     return;
                 }
             }
         }
         if (jobId == null) {
-            sender.sendMessage(Feedback.error("Unknown job id: " + idArg
-                    + ". Use /sg rbqueue list to see ids."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.rollback.unknown-job",
+                    "%id%", idArg));
             return;
         }
         var cancelled = queue.cancel(jobId);
         if (cancelled.isEmpty()) {
-            sender.sendMessage(Feedback.error("No matching pending or in-flight job."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.rollback.no-matching-job"));
             return;
         }
         RollbackJob job = cancelled.get();
@@ -181,13 +168,11 @@ public final class RbqueueService {
             // The pending->cancelled path skips runJob's cleanup, so
             // delete the resume marker explicitly.
             resumeStore.markFinish(job.id);
-            sender.sendMessage(Component.text(
-                    "Removed " + job.shortId() + " from queue.")
-                    .color(NamedTextColor.YELLOW));
+            sender.sendMessage(format(sender, "rbqueue.removed-pending",
+                    "%id%", job.shortId()));
         } else {
-            sender.sendMessage(Component.text(
-                    "Cancel signal sent to " + job.shortId() + " (in flight).")
-                    .color(NamedTextColor.YELLOW));
+            sender.sendMessage(format(sender, "rbqueue.cancel-inflight",
+                    "%id%", job.shortId()));
         }
     }
 
@@ -206,15 +191,17 @@ public final class RbqueueService {
             if (saved.id().toString().toLowerCase(java.util.Locale.ROOT).startsWith(idArg.toLowerCase(java.util.Locale.ROOT))
                     || saved.shortId().equalsIgnoreCase(idArg)) {
                 if (rollbackService.resumeFromSaved(saved, sender)) {
-                    sender.sendMessage(Component.text(
-                            "Resuming " + saved.shortId() + " — re-running query: " + saved.query())
-                            .color(NamedTextColor.GREEN));
+                    sender.sendMessage(format(sender, "rbqueue.resuming",
+                            "%id%", saved.shortId(), "%query%", saved.query()));
                 }
                 return;
             }
         }
-        sender.sendMessage(Feedback.error("No resumable job matching " + idArg
-                + ". Use /sg rbqueue list to see resumables."));
+        sender.sendMessage(format(sender, "rbqueue.no-resumable", "%id%", idArg));
+    }
+
+    private static Component format(CommandSender sender, String key, Object... placeholders) {
+        return Messages.getInstance().format(key, sender, placeholders);
     }
 
     // Accepts an 8-char short id or a full UUID, matching against

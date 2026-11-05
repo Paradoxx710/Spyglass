@@ -1,6 +1,7 @@
 package net.medievalrp.spyglass.plugin.command.render;
 
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -100,7 +101,7 @@ public final class ResultRenderer {
         String tag = originTag(record.origin());
         Component renderedLeadingTags = Component.empty();
         for (Component leadingTag : leadingTags(record)) {
-            renderedLeadingTags = renderedLeadingTags.append(leadingTag).append(Component.space());
+            renderedLeadingTags = renderedLeadingTags.append(leadingTag);
         }
         int qty = quantityOf(record);
         // Target span: skipped entirely when the record has nothing
@@ -110,7 +111,7 @@ public final class ResultRenderer {
         String targetText = targetOf(record, showIp);
         Component renderedTarget = Component.empty();
         if (!targetText.isEmpty()) {
-            Component defaultTarget = Component.text(" " + targetText, NamedTextColor.AQUA);
+            Component defaultTarget = Component.text(targetText);
             java.util.Optional<DisplayRenderer> custom = api == null
                     ? java.util.Optional.empty()
                     : api.displayRenderer(record.event());
@@ -128,29 +129,36 @@ public final class ResultRenderer {
 
         Map<String, Component> placeholders = new LinkedHashMap<>();
         placeholders.put("%date%", grouped
-                ? Component.text("(" + shortDate(record.occurred()) + ") ", NamedTextColor.GRAY)
+                ? Component.text("(" + shortDate(record.occurred()) + ")")
                 : Component.empty());
         placeholders.put("%origin-tag%", tag.isEmpty()
                 ? Component.empty()
-                : Component.text(tag + " ", NamedTextColor.AQUA));
+                : Component.text(tag));
         placeholders.put("%leading-tags%", renderedLeadingTags);
-        placeholders.put("%player%", Component.text(displaySourceName(record), NamedTextColor.GREEN));
-        placeholders.put("%source%", Component.text(displaySourceName(record), NamedTextColor.GREEN));
-        placeholders.put("%action%", Component.text(verb(record), NamedTextColor.WHITE));
+        placeholders.put("%player%", Component.text(displaySourceName(record)));
+        placeholders.put("%source%", Component.text(displaySourceName(record)));
+        placeholders.put("%action%", Component.text(verb(record)));
         placeholders.put("%amount%", qty > 0
-                ? Component.text(" " + qty, NamedTextColor.GREEN)
+                ? Component.text(String.valueOf(qty))
                 : Component.empty());
         placeholders.put("%target%", renderedTarget);
         String signText = signText(record);
         placeholders.put("%sign-text%", textOrEmpty(signText));
         placeholders.put("%count%", grouped
-                ? Component.text(" x" + count, NamedTextColor.GREEN)
+                ? Component.text("x" + count)
                 : Component.empty());
-        placeholders.put("%time%", Component.text(" " + timeAgo(record.occurred()), NamedTextColor.WHITE));
+        placeholders.put("%time%", Component.text(timeAgo(record.occurred())));
         Messages messages = Messages.getInstance();
         String eventLineKey = "results.event-lines." + record.event();
         String lineKey = messages.hasTemplate(eventLineKey) ? eventLineKey : "results.line";
-        Component rendered = messages.formatComponents(lineKey, placeholders)
+        String lineTemplate = messages.raw(lineKey);
+        for (String optional : List.of(
+                "%date%", "%origin-tag%", "%leading-tags%", "%amount%", "%target%", "%count%")) {
+            if (placeholders.get(optional).equals(Component.empty())) {
+                lineTemplate = removeSeparatorAfter(lineTemplate, optional);
+            }
+        }
+        Component rendered = messages.formatComponentTemplate(lineTemplate, placeholders)
                 .hoverEvent(HoverEvent.showText(hover(record, count, showIp)));
         if (grouped) {
             // Grouped result: click drills down into the per-player,
@@ -257,9 +265,9 @@ public final class ResultRenderer {
                 + loc.worldId() + " " + loc.x() + " " + loc.y() + " " + loc.z());
     }
 
-    private static String shortDate(Instant occurred) {
-        return occurred.atZone(java.time.ZoneId.systemDefault())
-                .format(java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy"));
+    private String shortDate(Instant occurred) {
+        return occurred.atZone(config.timezone())
+                .format(DateTimeFormatter.ofPattern("d/M/yyyy"));
     }
 
     public static Component pageHeader(int page, int totalPages, int totalResults) {
@@ -267,13 +275,10 @@ public final class ResultRenderer {
         // the left disappears entirely; on the last page the right does.
         // Single-page results show no arrows at all.
         net.kyori.adventure.text.TextComponent.Builder builder = Component.text()
-                .append(Component.text("«", NamedTextColor.GREEN))
-                .append(Component.text("Spyglass", NamedTextColor.AQUA))
-                .append(Component.text("»", NamedTextColor.GREEN))
-                .append(Component.text(" ", NamedTextColor.WHITE))
-                .append(Component.text(
-                        "(page " + page + "/" + totalPages + " - " + totalResults + " results)",
-                        NamedTextColor.GRAY));
+                .append(Messages.getInstance().format("commands.page-header",
+                        "%page%", String.valueOf(page),
+                        "%total%", String.valueOf(totalPages),
+                        "%results%", String.valueOf(totalResults)));
         if (page > 1) {
             builder.append(Component.text(" ", NamedTextColor.WHITE))
                     .append(navButton("←", page - 1));
@@ -283,6 +288,25 @@ public final class ResultRenderer {
                     .append(navButton("→", page + 1));
         }
         return builder.asComponent();
+    }
+
+    private static String removeSeparatorAfter(String template, String placeholder) {
+        int cursor = template.indexOf(placeholder);
+        if (cursor < 0) {
+            return template;
+        }
+        cursor += placeholder.length();
+        while (cursor < template.length() && template.charAt(cursor) == '<') {
+            int tagEnd = template.indexOf('>', cursor);
+            if (tagEnd < 0) {
+                return template;
+            }
+            cursor = tagEnd + 1;
+        }
+        if (cursor < template.length() && template.charAt(cursor) == ' ') {
+            return template.substring(0, cursor) + template.substring(cursor + 1);
+        }
+        return template;
     }
 
     private static Component navButton(String arrow, int targetPage) {
@@ -742,8 +766,8 @@ public final class ResultRenderer {
         return messages.raw("time.weeks").replace("%s", String.valueOf(weeks));
     }
 
-    private static String fullTimestamp(Instant instant) {
-        return instant.atZone(java.time.ZoneId.systemDefault())
-                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+    private String fullTimestamp(Instant instant) {
+        return instant.atZone(config.timezone())
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 }

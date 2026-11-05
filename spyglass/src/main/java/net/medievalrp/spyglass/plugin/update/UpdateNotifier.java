@@ -12,7 +12,8 @@ import java.util.Map;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.medievalrp.spyglass.plugin.command.render.Messages;
 import org.bson.Document;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -26,23 +27,26 @@ import org.spongepowered.configurate.hocon.HoconConfigurationLoader;
 public final class UpdateNotifier implements Listener {
     private final JavaPlugin plugin;
     private final Map<UUID, String> notified = new HashMap<>();
-    private volatile String status = "Update check pending.";
+    private volatile Component status;
     private volatile ReleaseChecker.Release available;
     private BukkitTask task;
 
-    public UpdateNotifier(JavaPlugin plugin) { this.plugin = plugin; }
+    public UpdateNotifier(JavaPlugin plugin) {
+        this.plugin = plugin;
+        this.status = message("updates.status-pending");
+    }
 
     public void start() throws java.io.IOException {
         var root = HoconConfigurationLoader.builder().path(plugin.getDataFolder().toPath().resolve("config.conf")).build().load();
         if (!root.node("updates", "enabled").getBoolean(true)) {
-            status = "Update checks disabled.";
+            status = message("updates.status-disabled");
             return;
         }
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         task = plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, this::check, 20L, 6L * 60 * 60 * 20);
     }
 
-    public String status() { return status; }
+    public Component status() { return status; }
 
     private void check() {
         try (HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()) {
@@ -70,18 +74,21 @@ public final class UpdateNotifier implements Listener {
             String minecraft = plugin.getServer().getMinecraftVersion();
             var latest = ReleaseChecker.newest(releases, minecraft);
             available = latest.filter(r -> ReleaseChecker.newer(r.version(), plugin.getPluginMeta().getVersion())).orElse(null);
-            status = available != null ? "Spyglass " + available.version() + " is available for Minecraft " + minecraft + ": " + available.url()
-                    : latest.isEmpty() ? "No compatible published release found for Minecraft " + minecraft + "."
-                    : "No newer compatible release found for Minecraft " + minecraft + ".";
+            status = available != null
+                    ? message("updates.status-available", "%version%", available.version(),
+                            "%minecraft%", minecraft, "%url%", available.url())
+                    : latest.isEmpty()
+                            ? message("updates.status-none-compatible", "%minecraft%", minecraft)
+                            : message("updates.status-no-newer", "%minecraft%", minecraft);
             if (plugin.isEnabled()) plugin.getServer().getScheduler().runTask(plugin, () -> {
                 if (available != null) {
-                    plugin.getLogger().info(status);
+                    plugin.getLogger().info(PlainTextComponentSerializer.plainText().serialize(status));
                     plugin.getServer().getOnlinePlayers().forEach(this::notifyPlayer);
                 }
             });
         } catch (Exception failure) {
             available = null;
-            status = "Update check unavailable; see GitHub releases or try again later.";
+            status = message("updates.status-unavailable");
             plugin.getLogger().fine("Spyglass update check: " + failure.getMessage());
             if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
         }
@@ -97,7 +104,12 @@ public final class UpdateNotifier implements Listener {
         if (release == null || !player.isOnline() || !player.hasPermission("spyglass.update")
                 || release.version().equals(notified.get(player.getUniqueId()))) return;
         notified.put(player.getUniqueId(), release.version());
-        player.sendMessage(Component.text("Spyglass " + release.version() + " is available for this Minecraft version. Click to view the release.", NamedTextColor.YELLOW)
+        player.sendMessage(message("updates.available", "%version%", release.version())
                 .clickEvent(ClickEvent.openUrl(release.url())));
+    }
+
+    private static Component message(String key, Object... placeholders) {
+        return Messages.getInstance().format(key, (org.bukkit.command.CommandSender) null,
+                placeholders);
     }
 }

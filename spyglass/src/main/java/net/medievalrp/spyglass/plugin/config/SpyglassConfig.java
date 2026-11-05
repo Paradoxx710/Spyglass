@@ -3,6 +3,8 @@ package net.medievalrp.spyglass.plugin.config;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.medievalrp.spyglass.api.util.Duration;
@@ -15,6 +17,7 @@ import org.spongepowered.configurate.hocon.HoconConfigurationLoader;
 public record SpyglassConfig(
         Database database,
         Storage storage,
+        ZoneId timezone,
         Defaults defaults,
         Limits limits,
         Map<String, EventSettings> events,
@@ -37,6 +40,8 @@ public record SpyglassConfig(
     public static final java.util.List<String> DEFAULT_COMMAND_REDACT = java.util.List.of(
             "login", "register", "l", "reg", "changepassword", "changepw",
             "unregister", "premium", "2fa", "totp", "auth");
+
+    public static final String DEFAULT_TIMEZONE = "America/New_York";
 
     /**
      * Extra names (not counting the command's own name) registered for each
@@ -248,6 +253,7 @@ public record SpyglassConfig(
                         root.node("storage", "spill-to-disk").getBoolean(true),
                         root.node("storage", "spill-drain-rate").getInt(20_000),
                         Duration.parse(root.node("storage", "flush-timeout").getString("5s"))),
+                parseTimezone(root, plugin.getLogger()),
                 new Defaults(
                         root.node("defaults", "enabled").getBoolean(true),
                         root.node("defaults", "radius").getInt(250),
@@ -292,6 +298,17 @@ public record SpyglassConfig(
                 // to a WorldEdit op.
                 new WorldEdit(root.node("worldedit", "enabled").getBoolean(true)),
                 parseSnapshot(root));
+    }
+
+    static ZoneId parseTimezone(ConfigurationNode root, java.util.logging.Logger logger) {
+        String configured = root.node("timezone").getString(DEFAULT_TIMEZONE);
+        try {
+            return ZoneId.of(configured);
+        } catch (DateTimeException | NullPointerException ex) {
+            logger.warning("Spyglass: invalid timezone '" + configured + "' in config.conf; "
+                    + "using the default '" + DEFAULT_TIMEZONE + "'.");
+            return ZoneId.of(DEFAULT_TIMEZONE);
+        }
     }
 
     /**

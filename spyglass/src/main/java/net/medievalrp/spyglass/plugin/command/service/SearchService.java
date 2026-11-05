@@ -58,7 +58,7 @@ public final class SearchService {
             try {
                 request = parser.parse(sender, raw, 0, resolved);
             } catch (ParamParseException ex) {
-                sender.sendMessage(Feedback.error(ex.getMessage()));
+                sender.sendMessage(Feedback.parseError(sender, ex));
                 return;
             }
             executeRequest(sender, request);
@@ -71,7 +71,8 @@ public final class SearchService {
             if (error != null) {
                 logger.warning("Spyglass search failed: " + error);
                 support.onMainThread(() -> sender.sendMessage(
-                        Feedback.error("Query failed: " + error.getMessage())));
+                        Feedback.catalogError(sender, "catalog.search.query-failed",
+                                "%error%", error.getMessage())));
                 return;
             }
             support.onMainThread(() -> handleResults(sender, request, result));
@@ -113,7 +114,7 @@ public final class SearchService {
         int count = grouping ? aggregations.size() : records.size();
         if (count == 0) {
             pageCache.clear(sender);
-            sender.sendMessage(Feedback.error("No results."));
+            sender.sendMessage(Feedback.catalogError(sender, "catalog.search.no-results"));
             return;
         }
         // Cache a lazy line source: the renderer runs only on page flip, so

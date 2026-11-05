@@ -97,7 +97,7 @@ public final class MigrateService {
     /** Async entry point: cheap checks inline, the job itself off-thread. */
     public Outcome migrate(CommandSender sender, String targetName, boolean confirm) {
         if (running.get()) {
-            tellError(sender, "A migration is already running; try again once it finishes.");
+            tellCatalogError(sender, "catalog.migrate.running");
             return Outcome.ALREADY_RUNNING;
         }
         support.onAsyncThread(() -> runMigrate(sender, targetName, confirm));
@@ -109,13 +109,12 @@ public final class MigrateService {
     Outcome runMigrate(CommandSender sender, String targetName, boolean confirm) {
         Backend target = parseBackend(targetName);
         if (target == null) {
-            tellError(sender, "Unknown backend '" + targetName
-                    + "' (expected sqlite, mongo, clickhouse, or mariadb).");
+            tellCatalogError(sender, "catalog.migrate.unknown-backend", "%backend%", targetName);
             return Outcome.INVALID_TARGET;
         }
         if (target == active) {
-            tellError(sender, capitalize(targetName) + " is already the active backend; "
-                    + "nothing to migrate.");
+            tellCatalogError(sender, "catalog.migrate.active-backend",
+                    "%backend%", capitalize(targetName));
             return Outcome.INVALID_TARGET;
         }
         String configError = validateTargetConfig(databaseConfig, target);
@@ -125,11 +124,11 @@ public final class MigrateService {
             return Outcome.INVALID_TARGET;
         }
         if (importRunning.getAsBoolean()) {
-            tellError(sender, "A CoreProtect import is running; wait for it before migrating.");
+            tellCatalogError(sender, "catalog.migrate.import-running");
             return Outcome.IMPORT_RUNNING;
         }
         if (!running.compareAndSet(false, true)) {
-            tellError(sender, "A migration is already running; try again once it finishes.");
+            tellCatalogError(sender, "catalog.migrate.running");
             return Outcome.ALREADY_RUNNING;
         }
         long startNanos = System.nanoTime();
@@ -162,7 +161,7 @@ public final class MigrateService {
             return Outcome.DONE;
         } catch (Exception ex) {
             logger.log(Level.SEVERE, "Spyglass migration to " + targetName + " failed", ex);
-            tellError(sender, "Migration failed: " + ex.getMessage());
+            tellCatalogError(sender, "catalog.migrate.failed", "%error%", ex.getMessage());
             return Outcome.FAILED;
         } finally {
             if (targetStore != null) {
@@ -336,5 +335,11 @@ public final class MigrateService {
     private void tellSuccess(CommandSender sender, String message) {
         support.onMainThread(() -> sender.sendMessage(
                 net.medievalrp.spyglass.plugin.command.render.Feedback.success(message)));
+    }
+
+    private void tellCatalogError(CommandSender sender, String key, Object... placeholders) {
+        support.onMainThread(() -> sender.sendMessage(
+                net.medievalrp.spyglass.plugin.command.render.Feedback.catalogError(
+                        sender, key, placeholders)));
     }
 }

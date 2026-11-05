@@ -78,7 +78,8 @@ final class SalvageGuiView implements SalvageView {
             return;
         }
         if (groups.isEmpty()) {
-            player.sendMessage(Component.text("No salvaged inventories.", NamedTextColor.GRAY));
+            player.sendMessage(net.medievalrp.spyglass.plugin.command.render.Messages.getInstance()
+                    .get("catalog.salvage.no-inventories", player));
             return;
         }
         List<Cell> content = new ArrayList<>(groups.size());
@@ -163,7 +164,8 @@ final class SalvageGuiView implements SalvageView {
         SalvageWithdrawals.Outcome outcome = withdrawals.withdraw(player, snap, index);
         switch (outcome.status()) {
             case FULL -> player.sendMessage(
-                    Component.text("Your inventory is full.", NamedTextColor.RED));
+                    net.medievalrp.spyglass.plugin.command.render.Messages.getInstance()
+                            .get("catalog.salvage.inventory-full", player));
             case EMPTIED -> openChests(player, rollbackId);
             case TAKEN -> gui.nextTick(() -> openItems(player, rollbackId, outcome.updated()));
             case REFUSED, SKIPPED -> {

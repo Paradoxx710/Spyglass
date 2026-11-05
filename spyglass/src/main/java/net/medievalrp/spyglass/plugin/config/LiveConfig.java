@@ -18,6 +18,13 @@ public final class LiveConfig {
 
     public static void validateFile(java.nio.file.Path path) throws java.io.IOException {
         var root = org.spongepowered.configurate.hocon.HoconConfigurationLoader.builder().path(path).build().load();
+        String timezone = root.node("timezone").getString(SpyglassConfig.DEFAULT_TIMEZONE);
+        try {
+            java.time.ZoneId.of(timezone);
+        } catch (java.time.DateTimeException | NullPointerException ex) {
+            throw new IllegalArgumentException("Invalid timezone: " + timezone
+                    + " (expected a valid IANA time-zone ID, e.g. America/New_York or UTC)", ex);
+        }
         String material = root.node("tool", "material").getString();
         if (material != null && (org.bukkit.Material.matchMaterial(material) == null
                 || !org.bukkit.Material.matchMaterial(material).isItem()
@@ -34,7 +41,7 @@ public final class LiveConfig {
 
     public static List<String> restartRequired(SpyglassConfig before, SpyglassConfig after) {
         List<String> changes = new ArrayList<>();
-        compare(before, after, "", java.util.Set.of("events", "tool", "commandRedact", "storage"), changes);
+        compare(before, after, "", java.util.Set.of("events", "tool", "commandRedact", "storage", "timezone"), changes);
         compare(before.storage(), after.storage(), "storage.", java.util.Set.of("retention"), changes);
         return List.copyOf(changes);
     }

@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.medievalrp.spyglass.plugin.command.render.Messages;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.medievalrp.spyglass.api.event.StoredItem;
 import net.medievalrp.spyglass.api.util.Duration;
@@ -257,12 +258,12 @@ final class SnapshotGuiView implements SnapshotView {
             case TAKEN -> {
                 // The audit record is the receipt; no chat spam per click.
             }
-            case INVENTORY_FULL -> viewer.sendMessage(Component.text(
-                    "That whole stack won't fit in your inventory - nothing taken.", NamedTextColor.YELLOW));
-            case NO_PERMISSION -> viewer.sendMessage(Component.text(
-                    "You don't have permission to take from snapshots.", NamedTextColor.RED));
-            case SLOT_EMPTY -> viewer.sendMessage(Component.text(
-                    "Nothing to take in that slot.", NamedTextColor.RED));
+            case INVENTORY_FULL -> viewer.sendMessage(Messages.getInstance()
+                    .format("snapshot.chat.inventory-full", viewer));
+            case NO_PERMISSION -> viewer.sendMessage(Messages.getInstance()
+                    .format("snapshot.chat.no-permission", viewer));
+            case SLOT_EMPTY -> viewer.sendMessage(Messages.getInstance()
+                    .format("snapshot.chat.slot-empty", viewer));
         }
     }
 
@@ -378,8 +379,7 @@ final class SnapshotGuiView implements SnapshotView {
             // superseded it. Same gate, same wording, and the dead menu
             // closes so it cannot mislead again.
             if (sessions.resolve(who, session.token()).isEmpty()) {
-                who.sendMessage(Component.text(
-                        "That snapshot has expired - re-run /sg snapshot.", NamedTextColor.RED));
+                who.sendMessage(Messages.getInstance().format("snapshot.chat.expired", who));
                 gui.nextTick(who::closeInventory);
                 return;
             }
