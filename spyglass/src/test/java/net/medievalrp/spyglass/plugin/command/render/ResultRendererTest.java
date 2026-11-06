@@ -23,6 +23,7 @@ import net.medievalrp.spyglass.api.event.BlockSnapshot;
 import net.medievalrp.spyglass.api.event.ChatRecord;
 import net.medievalrp.spyglass.api.event.EntityDeathRecord;
 import net.medievalrp.spyglass.api.event.EntityHitRecord;
+import net.medievalrp.spyglass.api.event.JoinRecord;
 import net.medievalrp.spyglass.api.event.Origin;
 import net.medievalrp.spyglass.api.event.Source;
 import net.medievalrp.spyglass.api.extension.DisplayRenderer;
@@ -90,6 +91,57 @@ class ResultRendererTest {
         assertThat(PlainTextComponentSerializer.plainText().serialize(rendered))
                 .isEqualTo("Alice|triggered|SCULK_SENSOR");
         assertThat(hoverPlain(rendered)).isEqualTo("triggered\nworld 10,64,20");
+    }
+
+    @Test
+    void eventHoverLinesCanBeConfiguredInEventSettings() {
+        Messages.setInstance(new Messages(Map.of(
+                "results.line", "%player%",
+                "results.hover.default", "Base hover%details%",
+                "results.hover.events.sculk.lines", "Evento: %event%\nCantidad: %count%"
+        )));
+        SpyglassApi api = mock(SpyglassApi.class);
+        when(api.displayRenderer("sculk")).thenReturn(Optional.empty());
+        ResultRenderer renderer = new ResultRenderer(api, configWithVerb("sculk", "triggered"));
+
+        Component rendered = renderer.renderSingle(useRecord(), EnumSet.noneOf(Flag.class), true);
+
+        assertThat(hoverPlain(rendered)).contains("Evento: sculk").contains("Cantidad: 1");
+    }
+
+    @Test
+    void emptyEventHoverPlaceholdersOmitTheirConfiguredLines() {
+        Messages.setInstance(new Messages(Map.of(
+                "results.line", "%player%",
+                "results.hover.default", "Base hover%details%",
+                "results.hover.events.join.lines", "IP: %ip%"
+        )));
+        SpyglassApi api = mock(SpyglassApi.class);
+        when(api.displayRenderer("join")).thenReturn(Optional.empty());
+        JoinRecord record = new JoinRecord(
+                UUID.randomUUID(), "join", Instant.now(), Instant.now().plusSeconds(60),
+                Origin.player(), Source.player(PLAYER_ID, "Alice"),
+                new BlockLocation(WORLD_ID, "world", 10, 64, 20), "test", "Alice", null);
+
+        Component rendered = new ResultRenderer(api, configWithVerb("join", "joined"))
+                .renderSingle(record, EnumSet.noneOf(Flag.class), true);
+
+        assertThat(hoverPlain(rendered)).doesNotContain("IP:");
+    }
+
+    @Test
+    void singleRecordHoverCountIsOne() {
+        Messages.setInstance(new Messages(Map.of(
+                "results.line", "%player%",
+                "results.hover.default", "Count: %count%"
+        )));
+        SpyglassApi api = mock(SpyglassApi.class);
+        when(api.displayRenderer("sculk")).thenReturn(Optional.empty());
+
+        Component rendered = new ResultRenderer(api, configWithVerb("sculk", "triggered"))
+                .renderSingle(useRecord(), EnumSet.noneOf(Flag.class), true);
+
+        assertThat(hoverPlain(rendered)).isEqualTo("Count: 1");
     }
 
     @Test
@@ -405,6 +457,9 @@ class ResultRendererTest {
     void hoverShowsCustomItemNameLoreAndEnchants() {
         SpyglassApi api = mock(SpyglassApi.class);
         when(api.displayRenderer("deposit")).thenReturn(Optional.empty());
+        Messages.setInstance(new Messages(Map.of(
+                "results.hover.events.deposit.lines",
+                "Nombre: %item-name%\nMagia: %item-enchants%\nDatos: %item-tags%\nTexto: %item-lore%")));
         ResultRenderer renderer = new ResultRenderer(api, configWithVerb("deposit", "deposited"));
 
         net.medievalrp.spyglass.api.event.StoredItem item =
@@ -412,14 +467,18 @@ class ResultRendererTest {
                         0, "IRON_HORSE_ARMOR", null,
                         "Storm Caller",
                         List.of("Forged in the primordial deep", "+10 barding"),
-                        List.of("protection=4", "unbreaking=3"));
+                        List.of("protection=4", "unbreaking=3"),
+                        "{quest:deliver_letter}");
 
         String hover = hoverPlain(renderer.renderSingle(
                 depositRecord(item), EnumSet.noneOf(Flag.class), true));
 
-        assertThat(hover).contains("Storm Caller");
+        assertThat(hover).contains("Nombre: Storm Caller");
         assertThat(hover).contains("primordial deep");
-        assertThat(hover).contains("protection=4").contains("unbreaking=3");
+        assertThat(hover).contains("Magia: protection=4, unbreaking=3")
+                .contains("Datos:")
+                .contains("Texto: Forged in the primordial deep");
+        assertThat(hover).doesNotContain("Item Name:").doesNotContain("Enchants:");
     }
 
     @Test
@@ -507,6 +566,8 @@ class ResultRendererTest {
     void rendersCustomEventWithVerbTargetMessageAndBagInHover() {
         SpyglassApi api = mock(SpyglassApi.class);
         when(api.displayRenderer("voice")).thenReturn(Optional.empty());
+        Messages.setInstance(new Messages(Map.of(
+                "results.hover.events.voice.lines", "Session: %voice_session_id%")));
         ResultRenderer renderer = new ResultRenderer(api, configWithVerb("voice", "spoke"));
 
         Instant now = Instant.now();
@@ -523,9 +584,9 @@ class ResultRendererTest {
 
         assertThat(plain).contains("Alice").contains("spoke")
                 .contains("voice to 2 players").contains("hello there");
-        // The bag rides into the hover as first-class key/value lines.
+        // Extension keys are available as event-specific placeholders.
         String hover = hoverPlain(rendered);
-        assertThat(hover).contains("session_id").contains("42");
+        assertThat(hover).contains("Session: 42").doesNotContain("voice_session_id");
     }
 
     @Test

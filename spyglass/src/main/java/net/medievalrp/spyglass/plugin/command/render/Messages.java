@@ -188,12 +188,13 @@ public final class Messages {
                     "<gray>= </gray><gray>%date%</gray> <aqua>%origin-tag%</aqua> %leading-tags% <green>%player%</green> <white>%action%</white> <aqua>%target%</aqua> with %sign-text% <white>%time%</white>"),
             Map.entry("results.hover.default",
                     "<gray>Source: </gray>%source%\n"
-                    + "<gray>Event: </gray>%event%%count-line%\n"
+                    + "<gray>Event: </gray>%event%\n"
+                    + "<gray>Count: </gray>%count%\n"
                     + "<gray>Target: </gray>%target%\n"
                     + "<gray>When: </gray>%when%\n"
                     + "<gray>Origin: </gray>%origin%\n"
                     + "<gray>Location: </gray>%location%"
-                    + "%server-line%%details%"),
+                    + "\n<gray>Server: </gray>%server%%details%"),
             Map.entry("tool.name", "<gold><bold>Spyglass Wand</bold></gold>"),
             Map.entry("time.just-now", "just now"),
             Map.entry("time.seconds", "%ss"),

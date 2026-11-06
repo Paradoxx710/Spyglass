@@ -323,6 +323,7 @@ public final class ResultRenderer {
 
     private Component hover(EventRecord record, long count, boolean showIp) {
         List<Component> details = new ArrayList<>();
+        List<Component> eventDetails = new ArrayList<>();
         String recipients = "";
         String commandLine = "";
         String ip = "";
@@ -330,39 +331,46 @@ public final class ResultRenderer {
         String weapon = "";
         String cause = "";
         String via = "";
+        Messages messages = Messages.getInstance();
+        String eventKey = "results.hover.events." + record.event();
+        String eventLinesKey = eventKey + ".lines";
+        boolean hasEventLines = messages.hasTemplate(eventLinesKey)
+                || messages.hasListTemplate(eventLinesKey);
         if (record instanceof ChatRecord chat && !chat.recipients().isEmpty()) {
             recipients = recipientNames(chat.recipients());
-            details.add(kv("Recipients", recipients));
+            eventDetails.add(kv("Recipients", recipients));
         }
         if (record instanceof CommandRecord command) {
             commandLine = command.commandLine();
-            details.add(kv("Line", commandLine));
+            eventDetails.add(kv("Line", commandLine));
         }
         if (record instanceof JoinRecord join && join.address() != null && !join.address().isBlank()) {
             ip = showIp ? join.address() : IP_HIDDEN;
-            details.add(kv("IP", ip));
+            eventDetails.add(kv("IP", ip));
         }
         if (record instanceof EntityHitRecord hit) {
             damage = String.format(Locale.ROOT, "%.1f", hit.damage());
-            details.add(kv("Damage", damage));
+            eventDetails.add(kv("Damage", damage));
             if (hit.projectile()) {
                 weapon = hit.projectileType() == null
                         ? "projectile" : upperOrEmpty(hit.projectileType());
-                details.add(kv("Weapon", weapon));
+                eventDetails.add(kv("Weapon", weapon));
             }
         }
         if (record instanceof EntityDeathRecord death && death.damageCause() != null
                 && !death.damageCause().isBlank()) {
             cause = death.damageCause();
-            details.add(kv("Cause", cause));
+            eventDetails.add(kv("Cause", cause));
         }
         if (record instanceof TeleportRecord tp && tp.cause() != null && !tp.cause().isBlank()) {
             via = tp.cause();
-            details.add(kv("Via", via));
+            eventDetails.add(kv("Via", via));
         }
         StringBuilder extensionValues = new StringBuilder();
         record.extensions().forEach((key, value) -> {
-            details.add(kv(capitalizeKey(key), value));
+            if (!hasEventLines) {
+                details.add(kv(capitalizeKey(key), value));
+            }
             if (extensionValues.length() > 0) {
                 extensionValues.append('\n');
             }
@@ -373,7 +381,9 @@ public final class ResultRenderer {
         String itemEnchants = item == null ? "" : String.join(", ", item.enchants());
         String itemTags = itemTags(item);
         String itemLore = item == null ? "" : String.join("\n", visibleLore(item.lore()));
-        appendItemDetail(details, record);
+        if (!hasEventLines) {
+            appendItemDetail(details, record);
+        }
         if (api != null) {
             api.displayRenderer(record.event()).ifPresent(renderer -> {
                 try {
@@ -393,7 +403,7 @@ public final class ResultRenderer {
         placeholders.put("%player%", textOrEmpty(record.sourceName()));
         placeholders.put("%event%", textOrEmpty(record.event()));
         placeholders.put("%action%", textOrEmpty(verb(record)));
-        placeholders.put("%count%", textOrEmpty(count > 1 ? String.valueOf(count) : ""));
+        placeholders.put("%count%", textOrEmpty(String.valueOf(count)));
         placeholders.put("%target%", textOrEmpty(targetOf(record, showIp)));
         placeholders.put("%sign-text%", textOrEmpty(signText(record)));
         placeholders.put("%when%", textOrEmpty(timestamp));
@@ -417,18 +427,46 @@ public final class ResultRenderer {
         placeholders.put("%item-enchants%", textOrEmpty(itemEnchants));
         placeholders.put("%item-tags%", textOrEmpty(itemTags));
         placeholders.put("%item-lore%", textOrEmpty(itemLore));
-        placeholders.put("%count-line%", count > 1
-                ? Component.newline().append(kv("Count", String.valueOf(count)))
-                : Component.empty());
-        placeholders.put("%server-line%", record.server() != null && !record.server().isBlank()
-                ? Component.newline().append(kv("Server", record.server()))
-                : Component.empty());
+        record.extensions().forEach((key, value) -> {
+            if (key.matches("[A-Za-z0-9_-]+")) {
+                placeholders.putIfAbsent("%" + key + "%", textOrEmpty(value));
+            }
+        });
+        if (hasEventLines) {
+            List<String> configuredLines = messages.hasListTemplate(eventLinesKey)
+                    ? messages.rawList(eventLinesKey)
+                    : List.of(messages.raw(eventLinesKey).split("\\R", -1));
+            List<Component> configuredDetails = formatHoverLines(configuredLines, placeholders);
+            details.addAll(0, configuredDetails);
+        } else {
+            details.addAll(0, eventDetails);
+        }
         placeholders.put("%details%", joinedLines(details));
 
-        Messages messages = Messages.getInstance();
-        String eventKey = "results.hover.events." + record.event();
         String templateKey = messages.hasTemplate(eventKey) ? eventKey : "results.hover.default";
         return messages.formatComponents(templateKey, placeholders);
+    }
+
+    private static List<Component> formatHoverLines(List<String> templateLines,
+                                                    Map<String, Component> placeholders) {
+        List<Component> lines = new ArrayList<>();
+        for (String line : templateLines) {
+            boolean hasPlaceholder = false;
+            boolean hasValue = false;
+            for (Map.Entry<String, Component> entry : placeholders.entrySet()) {
+                if (!line.contains(entry.getKey())) {
+                    continue;
+                }
+                hasPlaceholder = true;
+                String value = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+                        .plainText().serialize(entry.getValue());
+                hasValue |= !value.isBlank();
+            }
+            if (!hasPlaceholder || hasValue) {
+                lines.add(Messages.getInstance().formatComponentTemplate(line, placeholders));
+            }
+        }
+        return lines;
     }
 
     private static Component textOrEmpty(String value) {

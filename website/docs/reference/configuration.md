@@ -107,7 +107,22 @@ results {
 
 The available row variables are `%date%`, `%origin-tag%`, `%leading-tags%`, `%player%` (or `%source%`), `%action%`, `%amount%`, `%target%`, `%count%`, `%sign-text%`, and `%time%`. The date and count are empty for individual results; grouped-result dates use `d/M/yyyy`. Optional spacing is included in the values. The native `sign-edit` row includes the non-empty lines from the edited face as continuous text separated by spaces, and `%sign-text%` is available in both result-line and hover templates.
 
-The multiline `results.hover.default` template controls the standard tooltip. Optional event-specific templates under `results.hover.events` override it, using the event identifier as the key. For example, `events.command` can show `%command-line%` in a different layout. Hover variables include source/player, event/action, target, time, origin, location, server, amount/count, and event-specific values such as `%ip%`, `%damage%`, `%recipients%`, `%item-name%`, and `%item-lore%`. `%details%` inserts optional event, extension, and item details; `%count-line%` and `%server-line%` insert their corresponding optional lines. Placeholder values are escaped as text, so player names and logged values cannot inject MiniMessage formatting.
+The multiline `results.hover.default` template controls the standard tooltip. Optional event-specific templates under `results.hover.events.<event>` replace it completely. To customize just the extra lines for an event, define `results.hover.events.<event>.lines` in `messages.conf`; each line uses `Text: %placeholder%`, and omitting a line hides that field:
+
+```hocon
+results.hover.events {
+  command { lines = ["Command: %command-line%"] }
+  deposit {
+    lines = [
+      "Name: %item-name%"
+      "Enchants: %item-enchants%"
+      "Lore: %item-lore%"
+    ]
+  }
+}
+```
+
+Event-specific placeholders include `%sign-text%`, `%recipients%`, `%command-line%`, `%ip%`, `%damage%`, `%weapon%`, `%cause%`, `%via%`, `%item-name%`, `%item-enchants%`, `%item-tags%`, and `%item-lore%`. Extension fields are also available by key, for example `%before-size%` or `%fuse-ticks%`. `%details%` inserts optional extension, item, and display-renderer details. The default hover shows count and server as `Text: %placeholder%` fields; `%count%` is `1` for a single record. Placeholder values are escaped as text, so player names and logged values cannot inject MiniMessage formatting.
 
 These settings are loaded with `messages.conf` and apply after `/sg reload`.
 

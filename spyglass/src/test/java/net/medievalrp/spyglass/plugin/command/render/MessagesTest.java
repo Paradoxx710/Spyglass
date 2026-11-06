@@ -222,6 +222,8 @@ class MessagesTest {
                 events {
                   command = \"\"\"%source% ran:
             %command-line%\"\"\"
+                  sculk { lines = \"\"\"Event: %event%
+            Target: %target%\"\"\" }
                 }
               }
             }
@@ -235,6 +237,20 @@ class MessagesTest {
         assertThat(loaded.hasTemplate("results.hover.events.command")).isTrue();
         assertThat(loaded.raw("results.hover.events.command"))
                 .isEqualTo("%source% ran:\n%command-line%");
+        assertThat(loaded.hasTemplate("results.hover.events.sculk.lines")).isTrue();
+        assertThat(loaded.raw("results.hover.events.sculk.lines"))
+                .isEqualTo("Event: %event%\nTarget: %target%");
+    }
+
+    @Test
+    void bundledMessagesDefineEventHoverLines(@TempDir Path tempDir) {
+        Messages loaded = Messages.load(tempDir, null);
+
+        assertThat(loaded.rawList("results.hover.events.command.lines"))
+                .containsExactly("Line: %command-line%");
+        assertThat(loaded.raw("results.hover.events.deposit.lines"))
+                .contains("Item Name: %item-name%", "Enchants: %item-enchants%",
+                        "Tags: %item-tags%", "Lore: %item-lore%");
     }
 
     @Test
